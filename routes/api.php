@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\HemocentroController;
+
 
 Route::prefix('auth')->group(function () {
 
@@ -12,6 +14,10 @@ Route::prefix('auth')->group(function () {
     // Route::post('/password/verify-code', [AuthController::class, 'verifyPassword']);
     // Route::post('/password/reset', [AuthController::class, 'resetPassword']);
     // Route::post('/refresh-token', [AuthController::class, 'refreshToken']);
-
     // Route::post('/logout', [AuthController::class, 'logout']);
+    
+
 });
+
+Route::get('/hemocentros', [HemocentroController::class, 'index']);
+        Route::post('/hemocentros', [HemocentroController::class, 'store']);
