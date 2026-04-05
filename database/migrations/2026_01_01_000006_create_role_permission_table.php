@@ -12,14 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('role_permission', function (Blueprint $table) {
-            $table->integer('id', true);
-            $table->integer('id_permission')->nullable();
-            $table->integer('id_role')->nullable();
+            $table->increments('id');            
+            $table->unsignedInteger('id_permission')->nullable();
+            $table->unsignedInteger('id_role')->nullable();
 
-            $table->foreign('id_permission', 'role_permission_ibfk_1')->references('id')->on('permissions');
-            $table->foreign('id_role', 'role_permission_ibfk_2')->references('id')->on('roles');
+            $table->foreign('id_permission')->references('id')->on('permissions');
+            $table->foreign('id_role')->references('id')->on('roles');
         });
     }
+    
 
     /**
      * Reverse the migrations.
