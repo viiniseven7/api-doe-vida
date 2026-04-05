@@ -30,6 +30,8 @@ class User extends Authenticatable
     'status', 
     'role_id', 
     'hemocentro_id', 
+    'responsavel_nome',
+    'responsavel_cpf',
     'criado_por'
 ];
 
