@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('campanha', function (Blueprint $table) {
-            $table->integer('id', true);
-            $table->integer('hemocentro_id')->nullable();
+            $table->increments('id');
+            $table->unsignedInteger('hemocentro_id')->nullable();
             $table->string('titulo', 255)->nullable();
             $table->string('subtitulo', 255)->nullable();
             $table->string('descricao', 255)->nullable();
@@ -28,8 +28,11 @@ return new class extends Migration
             $table->dateTime('deletado_em')->nullable();
             $table->timestamps();
 
-            $table->foreign('hemocentro_id', 'campanha_ibfk_1')->references('id')->on('hemocentro');
-        });
+            $table->foreign('hemocentro_id')
+            ->references('id')
+            ->on('hemocentro')
+            ->nullOnDelete();       
+             });
     }
 
     /**
