@@ -17,7 +17,7 @@ class AuthController extends Controller
             'name'      => 'required|string|max:255',
             'email'     => 'required|email|unique:users,email',
             'password'  => 'required|min:6|confirmed',
-            'cpf'       => 'required|string|size:14|unique:users,cpf',
+            'cpf'       => 'required|string|size:11|unique:users,cpf',
             'telefone'  => 'nullable|string|max:20|regex:/^\(\d{2}\)\s9\d{4}-\d{4}$/',
             'tipo_sang' => 'nullable|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
             'sexo'      => 'required|in:M,F,Outro,Prefiro não informar',
@@ -31,7 +31,7 @@ class AuthController extends Controller
             'hemocentro_id' => 'required|exists:hemocentro,id',
 
             'responsavel_nome' => 'nullable|string|max:255',
-            'responsavel_cpf'  => 'nullable|string|size:14',
+            'responsavel_cpf'  => 'nullable|string|size:11',
             'responsavel_data_nasc' => 'nullable|date_format:d/m/Y',
         ]);
 

@@ -56,4 +56,24 @@ class UserController extends Controller
 
         return true;
     }
+    
+    public function show($id) {
+        return User::findOrFail($id);
+    }
+
+    public function update($id, Request $request) {
+        $user = User::findOrFail($id);
+        $user->update($request->all());
+         
+        return response()->json(['message' => 'Usuário atualizado com sucesso!','data' => $user ], 200 );
+    }
+
+    public function destroy($id) {
+
+        $user = User::findOrFail($id);
+        $user->status = 0;
+        $user->save();
+
+        return response()->json(['message' => 'Usuário inativado com sucesso']);
+    }
 }
