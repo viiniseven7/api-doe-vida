@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('telefone_responsavel', 20)->nullable()->after('cpf_responsavel');
+            $table->string('responsavel_telefone', 20)->nullable()->after('responsavel_data_nasc');
             $table->date('tempo_restricao')->nullable()->after('role_id');
         });
     }
@@ -23,7 +23,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['telefone_responsavel', 'tempo_restricao']);
-        });
+        $table->dropColumn(['responsavel_telefone', 'tempo_restricao']);        });
     }
 };
