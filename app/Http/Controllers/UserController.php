@@ -61,12 +61,29 @@ class UserController extends Controller
         return User::findOrFail($id);
     }
 
-    public function update($id, Request $request) {
-        $user = User::findOrFail($id);
-        $user->update($request->all());
-         
-        return response()->json(['message' => 'Usuário atualizado com sucesso!','data' => $user ], 200 );
-    }
+    public function update(Request $request, $id) 
+{
+    $user = User::findOrFail($id);
+
+    $validated = $request->validate([
+        'password'      => 'sometimes|min:6',
+        'name'          => 'sometimes|string|max:255',
+        'email'         => 'sometimes|email|unique:users,email,'.$id,
+        'hemocentro_id' => 'sometimes|exists:hemocentros,id', // Sem o S
+        'cpf'           => 'sometimes|unique:users,cpf,'.$id,
+        'status'        => 'sometimes|boolean',
+        'tipo_sang'     => 'sometimes|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
+        'sexo'          => 'sometimes|in:M,F',
+        'telefone'      => 'sometimes|string|max:20',
+    ]);
+
+    $user->update($validated);
+     
+    return response()->json([
+        'message' => 'Usuário atualizado com sucesso!',
+        'data' => $user->fresh() // Carrega os dados atualizados do banco
+    ], 200);
+}
 
     public function destroy($id) {
 

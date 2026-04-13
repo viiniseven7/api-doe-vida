@@ -1,78 +1,96 @@
-CADASTRO 
-TELA CADASTRE-SE  (API REGISTER)
+# Doe Vida API & Front-end Map
 
-Tela de Dados Pessoais (API REGISTER)
- 
-incluir senha e confirmar senha
-incluir campos responsável - nome - cpf e data de nascimento do responsável
-Esqueci a senha - API externa para enviar email com a senha atual do usuario
+Este documento descreve as rotas da API e o mapeamento das telas do sistema (Front-end) com as suas respectivas funcionalidades e consumos de API.
 
-DOADOR- http://localhost:3000/dashboard/donor
-Arrumar modelo dashboard para consumir dados das doações do usuário
-Possível Agendar doação na tela de doador (API DE AGENDAMENTO)
-Confirmar Agendamento 
-Editar mais informações do perfil (endereço,cidade) e poder alterar senha 
-(API - update/id) 
-avatar usuário 
+---
 
-Criar coluna no banco ( tempo de restrição ou Tempo de doação) para validar o período de próxima disponibilidade de doação
+## 🗺️ Rotas da API (`routes/api.php`)
 
+Todas as rotas da API utilizam o prefixo padrão `/api` (fornecido pelo Laravel).
+As rotas que exigem autenticação requerem o envio do token Bearer via header (Sanctum).
 
-FUNCIONARIO : http://localhost:3000/dashboard/staff
+### 🔐 Autenticação
+- `POST /api/auth/register`: Criação de um novo usuário.
+- `POST /api/auth/login`: Realiza o login e retorna o token de acesso.
+- `GET /api/auth/me`: Retorna os dados do usuário autenticado atual. *(Requer Autenticação)*
 
-dashboard consumir do banco com consultas 
+### 👥 Usuários
+- `POST /api/auth/users`: Criação de um novo usuário por um administrador/funcionário. *(Requer Autenticação)*
+- `GET /api/users`: Lista os usuários.
+- `GET /api/users/{id}`: Exibe os detalhes de um usuário específico.
+- `PUT /api/users/{id}`: Atualiza os dados de um usuário.
+- `DELETE /api/users/{id}`: Remove um usuário do sistema.
 
-Confirmar/cancelar agendamentos (API Agendamento)
+### 🏥 Hemocentros
+- `GET /api/hemocentros`: Lista todos os hemocentros.
+- `GET /api/hemocentros/{hemocentro}`: Exibe os detalhes de um hemocentro específico.
+- `POST /api/auth/hemocentros`: Cria um novo hemocentro. *(Requer Autenticação)*
+- `PUT /api/auth/hemocentros/{hemocentro}`: Atualiza os dados de um hemocentro. *(Requer Autenticação)*
+- `DELETE /api/auth/hemocentros/{hemocentro}`: Remove um hemocentro. *(Requer Autenticação)*
 
-Abrir modal com informações da Doação (tipo sanguíneo do paciente, aptidao sanguínea, status doação, status doador (inapto, apto), Ml´s, bolsas
+### 📅 Agendamentos
+- `POST /api/auth/agendamentos`: Cria um novo agendamento. *(Requer Autenticação)*
+- `GET /api/agendamentos`: Lista os agendamentos. *(Requer Autenticação)*
 
-Cancelamento do agendamento (informar motivo (não comparecimento, não apto na entrevista, saude não elegível para doação)
+---
 
-Atualizar estoque (informar descrição do processo) - somar quantidade de ml de acordo com as bolsas
+## 🖥️ Telas e Integrações (Front-end)
 
-Buscar Doador (buscar somente DOADORES DO HEMOCENTRO , poder alterar o tipo sanguíneo, telefone e hemocentro, inativar ,  restringir usuário para doação ) API USERS PUT
+### 1. Cadastro Geral
+- **Telas "Cadastre-se" e "Dados Pessoais"**: 
+  - Utilizam `POST /api/auth/register`.
+  - Campos a incluir: Senha, confirmação de senha, campos do responsável (nome, CPF, data de nascimento).
+- **Esqueci a Senha**: API externa para envio de e-mail com a senha ou link de recuperação.
 
-Editar o Proprio cadastro  (informações do proprio funcionario) API USERS PUT
+### 2. Doador (`/dashboard/donor`)
+- **Dashboard**: Consumir e exibir dados das doações do usuário.
+- **Agendamento**: 
+  - Agendar doação (`POST /api/auth/agendamentos`).
+  - Confirmar Agendamento.
+- **Perfil**: 
+  - Editar informações (endereço, cidade), senha, avatar.
+  - Consome `PUT /api/users/{id}`.
+- **Regras de Negócio**: 
+  - Banco de Dados precisa de coluna (Tempo de Restrição / Tempo de Doação) para validar período de próxima disponibilidade.
 
+### 3. Funcionário (`/dashboard/staff`)
+- **Dashboard**: Consumir do banco através de consultas (estatísticas, etc).
+- **Agendamentos**:
+  - Confirmar/cancelar agendamentos (Consumindo as rotas de Agendamentos).
+  - Modal de Doação (tipo sanguíneo do paciente, aptidão, status, ml, bolsas).
+  - Cancelamento (informar motivo: não comparecimento, inaptidão na triagem/entrevista, não elegível).
+- **Estoque**: Atualizar estoque e somar ml de acordo com as bolsas, informando descrição do processo.
+- **Busca de Doador**: Buscar somente doadores do *seu* hemocentro. Pode alterar tipo sanguíneo, telefone, hemocentro, inativar ou restringir usuário (`PUT /api/users/{id}`).
+- **Perfil**: Editar o próprio cadastro (`PUT /api/users/{id}`).
 
-DIRETOR http://localhost:3000/dashboard/director
+### 4. Diretor (`/dashboard/director`)
+- **Dashboard**:
+  - Remover Dashboard de Satisfação (se não usado).
+  - Revisar estatísticas da equipe.
+- **Gestão de Funcionários**:
+  - Criar funcionário com cargo (senha, endereço, id do hemocentro fixo, telefone, etc) (`POST /api/auth/users`).
+  - Editar informações do funcionário (nome, cargo, telefone, status, permissões) (`PUT /api/users/{id}`).
+  - Adicionar coluna/funcionalidade de criar e editar permissões usando Spatie Permissions.
+- **Estoque e Relatórios (Exportação em PDF)**:
+  - Relação de doações realizadas no dia/semana/mês por tipo sanguíneo.
+  - Relatório Mensal: Gráfico de Torre/Linha em modal.
+  - Relatório de Doadores: Ativos, inaptos (e motivos), concluídas.
+  - Relatório de Estoque: Torre/Linha com possibilidade de filtrar os tipos.
+  - Relatório de Desempenho: Cadastros, atendimentos, satisfação.
 
-Remover Dashboard de Satisfação
+### 5. Administrador
+- **Gestão Global**:
+  - Cria campanhas e designa hemocentros para elas.
+  - Edita hemocentros e seus status (`PUT /api/auth/hemocentros/{hemocentro}`).
+  - Pode criar doadores e editar/alterar permissões de usuários globais.
 
-Revisar Estatistica de Equipe ( se necessario remover) 
+### 6. Hemocentro (Configurações)
+- **Detalhes**:
+  - Horário de funcionamento e datas disponíveis para agendar.
+  - Limite de doações por dia e máximo de estoque (definido pelo admin).
+  - Cadastrar novo hemocentro (`POST /api/auth/hemocentros`) adicionando campos específicos.
+  - Adicionar responsável pelo hemocentro.
 
-Editar informações do Usuario Funcionario ( Nome , cargo, telefone, status, permissoes ) API USERS PUT
-
-Criar funcionario (senha, endereço, hemocentro id(fixo do atual)telefone,data de nasc, email),  cargo-  api/users/create 
-
-Adicionar Coluna de criar/editar Permissoes (usar spatie permissons) 
-
-Estoque - Emitir relação de doações realizadas no dia/semana/mes do tipo sanguineo selecionado
-
-Relatorios: 
-          TODOS GRAFICO DEVERAO SER EXPORTADOS EM PDF
-
-relatorio mensal abrir modal com grafico de Torre, Linha
-Relatorio de DOADORES: Ativos, doadores inaptos, motivos de inapividate, concluidas e etc (usar dashboard helen de referncia)
-relatorio de estoque - Linha,Torre - Poder alterar tipos que deseja no relatorio
-Relatorio de Desempenho - Mais realizaram cadastro e atendimento, satisfação e etc (senao remover o modal do grafico)
-
-ADMINISTRADOR:
-CRIA CAMPANHAS E DESIGNA HEMOCENTROS PARA ELA
-EDITA HEMOCENTROS E STATUS
-3. Pode criar doadores tambem
-4. Edita permissoes e pode alterar permissoes de usuarios
-
-
-HEMOCENTRO 
-HORARIO DE FUNCIONAMENTO E DATAS DISPONIVEIS PARA AGENDAR
-DOAÇÕES POR DIA E MAXIMO DE ESTOQUE ( ADMIN DETERMINA)
-CADASTRAR NOVO HEMOCENTRO ADICIONAR CAMPOS CONSULTAR API-HEMOCENTRO 
-ADICIONAR RESPONSAVEL PELO HEMOCENTRO (BANCO E JSON) 
-
-
-
- FINALIZAR EM OUTRA REUNIAO
-AGENDAMENTO 
-Arrumar reagendamento (excluir (mudar status para E)  o agendamento  que esta sendo remarcado e crie um novo
-
+### 7. Pendências (Próximas Reuniões)
+- **Agendamento (Reagendar)**:
+  - Ao invés de alterar o registro original, mudar o status do agendamento atual para "E" (Excluído/Cancelado) e criar um novo agendamento.
