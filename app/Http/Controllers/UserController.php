@@ -1,26 +1,13 @@
 <?php
 
-namespace App\Http\Controllers; // 🔥 ISSO FALTAVA
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
-use App\Models\User;
 use Illuminate\Http\Request;
+use App\Models\User;
 use Illuminate\Support\Facades\Hash;
-
 
 class UserController extends Controller
 {
-    // 📋 LISTAR
-    public function index() {
-        return User::all();
-    }
-
-    // 🔍 VER UM
-    public function show($id) {
-        return User::findOrFail($id);
-    }
-
-    // ➕ CRIAR (DIRETOR)
     public function store(Request $request) {
 
         $request->validate([
@@ -30,71 +17,32 @@ class UserController extends Controller
             'cpf' => 'required|unique:users,cpf'
         ]);
 
+        // valida CPF real
         if (!$this->validarCPF($request->cpf)) {
             return response()->json([
                 'error' => 'CPF inválido'
             ], 400);
         }
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'cpf' => $request->cpf,
-        ]);
+        $data = $request->all();
+        $data['password'] = Hash::make($data['password']);
 
-        // 🔥 DEFINE ROLE AUTOMÁTICO
-        $user->assignRole('funcionario');
+        $user = User::create($data);
 
-        return response()->json([
-            'message' => 'Funcionário criado com sucesso',
-            'user' => $user
-        ]);
+        return response()->json($user);
     }
 
-    // ✏️ ATUALIZAR (ADMIN)
-    public function update($id, Request $request) {
-
-        $user = User::findOrFail($id);
-
-        // atualiza dados básicos
-        $user->update($request->only(['name', 'email']));
-
-        // 🔐 se vier senha → criptografa
-        if ($request->password) {
-            $user->password = Hash::make($request->password);
-            $user->save();
-        }
-
-        // 🔥 ALTERAR ROLE (SE ADMIN)
-        if ($request->role) {
-            $user->syncRoles([$request->role]);
-        }
-
-        return response()->json([
-            'message' => 'Usuário atualizado com sucesso!',
-            'data' => $user
-        ], 200 );
+    public function index() {
+        return User::all();
     }
 
-    // 🗑 INATIVAR
-    public function destroy($id) {
-
-        $user = User::findOrFail($id);
-        $user->status = 0;
-        $user->save();
-
-        return response()->json([
-            'message' => 'Usuário inativado com sucesso'
-        ]);
-    }
-
-    // 🔎 VALIDAR CPF
+    // ✅ AGORA está no lugar certo
     private function validarCPF($cpf)
     {
         $cpf = preg_replace('/[^0-9]/', '', $cpf);
 
         if (strlen($cpf) != 11) return false;
+
         if (preg_match('/(\d)\1{10}/', $cpf)) return false;
 
         for ($t = 9; $t < 11; $t++) {
@@ -107,5 +55,42 @@ class UserController extends Controller
         }
 
         return true;
+    }
+    
+    public function show($id) {
+        return User::findOrFail($id);
+    }
+
+    public function update(Request $request, $id) 
+{
+    $user = User::findOrFail($id);
+
+    $validated = $request->validate([
+        'password'      => 'sometimes|min:6',
+        'name'          => 'sometimes|string|max:255',
+        'email'         => 'sometimes|email|unique:users,email,'.$id,
+        'hemocentro_id' => 'sometimes|exists:hemocentros,id', // Sem o S
+        'cpf'           => 'sometimes|unique:users,cpf,'.$id,
+        'status'        => 'sometimes|boolean',
+        'tipo_sang'     => 'sometimes|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
+        'sexo'          => 'sometimes|in:M,F',
+        'telefone'      => 'sometimes|string|max:20',
+    ]);
+
+    $user->update($validated);
+     
+    return response()->json([
+        'message' => 'Usuário atualizado com sucesso!',
+        'data' => $user->fresh() // Carrega os dados atualizados do banco
+    ], 200);
+}
+
+    public function destroy($id) {
+
+        $user = User::findOrFail($id);
+        $user->status = 0;
+        $user->save();
+
+        return response()->json(['message' => 'Usuário inativado com sucesso']);
     }
 }
