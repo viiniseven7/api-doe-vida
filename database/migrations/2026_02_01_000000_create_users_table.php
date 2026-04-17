@@ -46,7 +46,7 @@ return new class extends Migration
     Schema::table('users', function (Blueprint $table) {
     $table->renameColumn('deleted_at', 'deletado_em');
 
-    $table->foreign('role_id')->references('id')->on('roles')->nullOnDelete();
+    
     $table->foreign('hemocentro_id')->references('id')->on('hemocentro')->nullOnDelete();
     $table->foreign('criado_por')->references('id')->on('users')->nullOnDelete();
 });
