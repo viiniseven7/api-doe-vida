@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HemocentroController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AgendamentoController;
+use App\Http\Controllers\TriagemController;
 
 // ==========================================
 // ROTAS DE AUTENTICAÇÃO
@@ -53,3 +54,11 @@ Route::delete('/auth/hemocentros/{hemocentro}', [HemocentroController::class, 'd
 // ==========================================
 Route::post('/auth/agendamentos', [AgendamentoController::class, 'store'])->middleware('auth:sanctum');
 Route::get('/agendamentos', [AgendamentoController::class, 'index'])->middleware('auth:sanctum');
+
+
+
+//TRIAGENS//
+Route::group(['middleware' => 'auth:sanctum'], function() {
+
+        Route::apiResource('triagens', TriagemController::class);
+});

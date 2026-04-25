@@ -28,18 +28,6 @@ class AuthController extends Controller
             'bairro'    => 'nullable|string|max:255',
             'cidade'    => 'required|string|max:255',
             'uf'        => 'nullable|in:AC,AL,AP,AM,BA,CE,DF,ES,GO,MA,MT,MS,MG,PA,PB,PR,PE,PI,RJ,RN,RS,RO,RR,SC,SP,SE,TO',
-            'hemocentro_id' => [
-                    'required',
-                    'exists:hemocentros,id',
-                    function ($attribute, $value, $fail) {
-                         // Checa se o hemocentro existe e se está ATIVO (status = 1)
-                     $hemocentro = \App\Models\Hemocentro::find($value);
-
-                    if (!$hemocentro || $hemocentro->status != 1) {
-                    $fail('Este hemocentro está inativo, selecione outro.');
-                    }
-                    },
-            ],
 
             'responsavel_nome' => 'nullable|string|max:255',
             'responsavel_cpf'  => 'nullable|string|size:11',
@@ -104,7 +92,7 @@ class AuthController extends Controller
                 'bairro'    => $validated['bairro'] ?? null,
                 'cidade'    => $validated['cidade'],
                 'uf'        => $validated['uf'] ?? null,
-                'hemocentro_id' => $validated['hemocentro_id'],
+                'hemocentro_id' => null, // ✅ Doador não tem hemocentro fixo
                 'role_id'   => 1,
                 'status'    => true,
 

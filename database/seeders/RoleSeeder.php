@@ -14,9 +14,12 @@ class RoleSeeder extends Seeder
      */
     public function run(): void
     {
-        \App\Models\Role::create(['id' => 1, 'nome' => 'Doador']);
-        \App\Models\Role::create(['id' => 2, 'nome' => 'Funcionario']);
-        \App\Models\Role::create(['id' => 3, 'nome' => 'Diretor']);
+        // Tabela roles do Spatie usa 'name' e 'guard_name'
+        \DB::table('roles')->insert([
+            ['id' => 1, 'name' => 'Doador', 'guard_name' => 'web'],
+            ['id' => 2, 'name' => 'Funcionario', 'guard_name' => 'web'],
+            ['id' => 3, 'name' => 'Diretor', 'guard_name' => 'web'],
+        ]);
     }
         
     
