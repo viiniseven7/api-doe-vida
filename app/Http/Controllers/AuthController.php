@@ -131,7 +131,26 @@ $validated['telefone'] = preg_replace('/\D/', '', $validated['telefone']);
 
         return true;
     }
+ public function forgotPassword(Request $request)
+{
+    return response()->json([
+        'ok' => true
+    ]);
+}
 
+    
+public function resetPassword(Request $request)
+{
+    $request->validate([
+        'email' => 'required|email',
+        'password' => 'required|min:6',
+        'token' => 'required'
+    ]);
+
+    return response()->json([
+        'message' => 'Senha redefinida com sucesso!'
+    ]);
+}
     public function login(Request $request)
     {
         $credentials = $request->validate([

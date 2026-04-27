@@ -11,6 +11,9 @@ use App\Http\Controllers\AgendamentoController;
 use App\Http\Controllers\TriagemController;
 
 
+
+Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 // ======================================================
 // 🔓 ROTAS PÚBLICAS (SEM LOGIN)
 // ======================================================
