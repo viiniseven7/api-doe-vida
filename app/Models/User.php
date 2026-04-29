@@ -7,8 +7,10 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 
-class User extends Authenticatable
+
+class User extends Authenticatable implements MustVerifyEmail
 {
  use HasFactory, HasApiTokens, Notifiable, HasRoles;
 
@@ -33,13 +35,17 @@ class User extends Authenticatable
         'responsavel_nome',
         'responsavel_cpf',
         'responsavel_data_nasc',
+        'hemocentro_id',
+        'status',
+        'criado_por',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
     ];
-
+    protected $guard_name = 'api';
+    
     protected function casts(): array
     {
         return [
