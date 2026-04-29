@@ -7,9 +7,16 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
-
 class UserController extends Controller
 {
+    // Mapa de role nam''"""e → role_id
+    private array $roleIdMap = [
+        'doador'      => 1,
+        'funcionario' => 2,
+        'diretor'     => 3,
+        'admin'       => 4,
+    ];
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -29,7 +36,6 @@ class UserController extends Controller
             'data_nasc'     => 'nullable|date_format:d/m/Y',
         ]);
 
-        // Valida CPF
         if (!$this->validarCPF($validated['cpf'])) {
             return response()->json(['error' => 'CPF inválido'], 422);
         }
@@ -47,13 +53,14 @@ class UserController extends Controller
             'email'         => $validated['email'],
             'password'      => Hash::make($validated['password']),
             'cpf'           => $validated['cpf'],
+            'role_id'       => $this->roleIdMap[$validated['role']] ?? 1,
             'hemocentro_id' => $validated['hemocentro_id'] ?? null,
             'telefone'      => $validated['telefone'] ?? null,
             'tipo_sang'     => $validated['tipo_sang'] ?? null,
             'sexo'          => $validated['sexo'] ?? null,
             'data_nasc'     => $validated['data_nasc'] ?? null,
             'status'        => true,
-            'criado_por'    => $request->user()->id
+            'criado_por'    => $request->user()?->id,
         ]);
 
         $user->assignRole($validated['role']);
@@ -62,14 +69,14 @@ class UserController extends Controller
     }
 
     public function index()
-    {
-        return User::all();
-    }
+{
+    return User::all();
+}
 
-    public function show(int $id)
-    {
-        return User::findOrFail($id);
-    }
+public function show(int $id)
+{
+    return User::findOrFail($id);
+}
 
     public function update(Request $request, int $id)
     {
@@ -82,7 +89,7 @@ class UserController extends Controller
             'cpf'           => 'sometimes|string|max:14|unique:users,cpf,' . $id,
             'role'          => 'sometimes|string|exists:roles,name',
             'hemocentro_id' => [
-                Rule::requiredIf(function() use ($request, $user) {
+                Rule::requiredIf(function () use ($request, $user) {
                     $role = $request->role ?? $user->getRoleNames()->first();
                     return in_array($role, ['funcionario', 'diretor']);
                 }),
@@ -108,14 +115,19 @@ class UserController extends Controller
             $validated['data_nasc'] = \Carbon\Carbon::createFromFormat('d/m/Y', $validated['data_nasc'])->format('Y-m-d');
         }
 
-        $finalRole = $validated['role'] ?? $user->getRoleNames()->first();
-
-        if ($finalRole === 'doador') {
-            $validated['hemocentro_id'] = null;
-        }
-
+        // Extrai role antes de atualizar
         $role = $validated['role'] ?? null;
         unset($validated['role']);
+
+        // Atualiza role_id se o role foi alterado
+        if ($role && isset($this->roleIdMap[$role])) {
+            $validated['role_id'] = $this->roleIdMap[$role];
+
+            // Se virou doador, limpa hemocentro
+            if ($role === 'doador') {
+                $validated['hemocentro_id'] = null;
+            }
+        }
 
         $user->update($validated);
 
@@ -125,20 +137,19 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'Usuário atualizado com sucesso!',
-            'data' => $user->fresh()
+            'data'    => $user->fresh(),
         ], 200);
     }
 
     public function destroy(int $id)
     {
         $user = User::findOrFail($id);
-
         $user->status = false;
         $user->save();
         $user->delete();
 
         return response()->json([
-            'message' => 'Usuário inativado e removido com sucesso'
+            'message' => 'Usuário inativado e removido com sucesso',
         ]);
     }
 
@@ -154,7 +165,6 @@ class UserController extends Controller
                 $d += $cpf[$c] * (($t + 1) - $c);
             }
             $d = ((10 * $d) % 11) % 10;
-
             if ($cpf[$c] != $d) return false;
         }
 
