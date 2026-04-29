@@ -5,10 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use App\Models\User;
 use Carbon\Carbon;
-
-
+use Illuminate\Auth\Events\Registered;
 
 
 class AuthController extends Controller
@@ -19,8 +19,8 @@ class AuthController extends Controller
             'name'      => 'required|string|max:255',
             'email'     => 'required|email|unique:users,email',
             'password'  => 'required|min:6|confirmed',
-            'cpf'       => 'required|string|size:11|unique:users,cpf',
-            'telefone' => 'required|string',
+            'cpf'       => 'required|string|max:14|unique:users,cpf',
+            'telefone'  => 'required|string',
             'tipo_sang' => 'nullable|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
             'sexo'      => 'required|in:M,F,Outro,Prefiro não informar',
             'data_nasc' => 'required|date_format:d/m/Y',
@@ -35,7 +35,9 @@ class AuthController extends Controller
             'responsavel_cpf'  => 'nullable|string|size:11',
             'responsavel_data_nasc' => 'nullable|date_format:d/m/Y',
         ]);
-$validated['telefone'] = preg_replace('/\D/', '', $validated['telefone']);
+
+        $validated['telefone'] = preg_replace('/\D/', '', $validated['telefone']);
+
         try {
             $dataNasc = Carbon::createFromFormat('d/m/Y', $validated['data_nasc']);
             $idade = $dataNasc->age;
@@ -70,7 +72,6 @@ $validated['telefone'] = preg_replace('/\D/', '', $validated['telefone']);
                 }
             }
 
-            // ✅ CRIA USUÁRIO
             $user = User::create([
                 'name'      => $validated['name'],
                 'email'     => $validated['email'],
@@ -96,9 +97,8 @@ $validated['telefone'] = preg_replace('/\D/', '', $validated['telefone']);
                     : null,
             ]);
 
-            // 🔥 SPATIE
             $user->assignRole('doador');
-
+            event(new Registered($user));
             return response()->json([
                 'message' => 'Doador registrado com sucesso!',
                 'user'    => $user
@@ -112,7 +112,7 @@ $validated['telefone'] = preg_replace('/\D/', '', $validated['telefone']);
         }
     }
 
-    private function validarCPF($cpf)
+    private function validarCPF(string $cpf): bool
     {
         $cpf = preg_replace('/[^0-9]/', '', $cpf);
 
@@ -131,26 +131,39 @@ $validated['telefone'] = preg_replace('/\D/', '', $validated['telefone']);
 
         return true;
     }
- public function forgotPassword(Request $request)
-{
-    return response()->json([
-        'ok' => true
-    ]);
-}
 
-    
-public function resetPassword(Request $request)
-{
-    $request->validate([
-        'email' => 'required|email',
-        'password' => 'required|min:6',
-        'token' => 'required'
-    ]);
+    public function forgotPassword(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
 
-    return response()->json([
-        'message' => 'Senha redefinida com sucesso!'
-    ]);
-}
+        $status = Password::sendResetLink($request->only('email'));
+
+        return $status === Password::RESET_LINK_SENT
+            ? response()->json(['message' => __($status)], 200)
+            : response()->json(['error' => __($status)], 422);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|min:6|confirmed',
+            'token' => 'required'
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->password = Hash::make($password);
+                $user->save();
+            }
+        );
+
+        return $status === Password::PASSWORD_RESET
+            ? response()->json(['message' => __($status)], 200)
+            : response()->json(['error' => __($status)], 422);
+    }
+
     public function login(Request $request)
     {
         $credentials = $request->validate([
@@ -165,14 +178,16 @@ public function resetPassword(Request $request)
             ], 401);
         }
 
+        /** @var \App\Models\User $user */
         $user = Auth::user();
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'success' => true,
             'message' => 'Login realizado com sucesso!',
             'user'    => $user,
-            'roles'   => $user->getRoleNames(),
+            'roles'   => $user->getRoleNames()->toArray(),
             'token'   => $token,
             'token_type' => 'Bearer',
         ]);
