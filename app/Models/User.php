@@ -12,7 +12,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
- use HasFactory, HasApiTokens, Notifiable, HasRoles;
+    use HasFactory, HasApiTokens, Notifiable, HasRoles;
 
     const CREATED_AT = 'criado_em';
     const UPDATED_AT = 'atualizado_em';
@@ -32,7 +32,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'bairro',
         'cidade',
         'uf',
-        'role_id',
         'responsavel_nome',
         'responsavel_cpf',
         'responsavel_data_nasc',
@@ -40,12 +39,15 @@ class User extends Authenticatable implements MustVerifyEmail
         'hemocentro_id',
         'status',
         'criado_por',
+        'tempo_restricao',
+        'role_id',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
     ];
+
     protected $guard_name = 'api';
     
     protected function casts(): array
@@ -56,5 +58,10 @@ class User extends Authenticatable implements MustVerifyEmail
             'data_nasc'       => 'date',
             'tempo_restricao' => 'date',
         ];
+    }
+
+    public function triagens()
+    {
+        return $this->hasMany(Triagem::class, 'user_id');
     }
 }
