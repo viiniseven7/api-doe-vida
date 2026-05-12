@@ -30,7 +30,7 @@ class Agendamento extends Model
 
     public function hemocentro()
     {
-        return $this->belongsTo(Hemocentro::class, 'hemocentro_id ');
+        return $this->belongsTo(Hemocentro::class, 'hemocentro_id');
     }
     public function coletador()
     {

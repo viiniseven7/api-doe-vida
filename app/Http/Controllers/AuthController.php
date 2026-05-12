@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Auth\Events\Registered;
+use Spatie\Permission\Models\Role;
 
 
 class AuthController extends Controller
@@ -22,7 +24,7 @@ class AuthController extends Controller
             'cpf'       => 'required|string|max:14|unique:users,cpf',
             'telefone'  => 'required|string',
             'tipo_sang' => 'nullable|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
-            'sexo'      => 'required|in:M,F,Outro,Prefiro não informar',
+            'sexo'      => 'required|string|max:30',
             'data_nasc' => 'required|date_format:d/m/Y',
             'cep'       => 'required|regex:/^\d{5}-?\d{3}$/',
             'rua'       => 'required|string|max:255',
@@ -34,9 +36,26 @@ class AuthController extends Controller
             'responsavel_nome' => 'nullable|string|max:255',
             'responsavel_cpf'  => 'nullable|string|size:11',
             'responsavel_data_nasc' => 'nullable|date_format:d/m/Y',
+            'responsavel_telefone' => 'nullable|string|max:20',
         ]);
 
         $validated['telefone'] = preg_replace('/\D/', '', $validated['telefone']);
+        if (!empty($validated['responsavel_telefone'])) {
+            $validated['responsavel_telefone'] = preg_replace('/\D/', '', $validated['responsavel_telefone']);
+        }
+
+        if (in_array($validated['sexo'], ['Prefiro não informar', 'Prefiro nÃ£o informar'], true)) {
+            $validated['sexo'] = 'Outro';
+        }
+
+        if (!in_array($validated['sexo'], ['M', 'F', 'Outro'], true)) {
+            return response()->json([
+                'error' => 'Sexo inválido.',
+                'errors' => [
+                    'sexo' => ['O campo sexo deve ser M, F ou Outro.'],
+                ],
+            ], 422);
+        }
 
         try {
             $dataNasc = Carbon::createFromFormat('d/m/Y', $validated['data_nasc']);
@@ -46,11 +65,18 @@ class AuthController extends Controller
                 return response()->json(['error' => 'CPF inválido.'], 422);
             }
 
+            if ($idade < 16) {
+                return response()->json([
+                    'error' => 'Ã‰ necessÃ¡rio ter no mÃ­nimo 16 anos para se cadastrar como doador.'
+                ], 422);
+            }
+
             if ($idade < 18) {
                 if (
                     empty($validated['responsavel_nome']) ||
                     empty($validated['responsavel_cpf']) ||
-                    empty($validated['responsavel_data_nasc'])
+                    empty($validated['responsavel_data_nasc']) ||
+                    empty($validated['responsavel_telefone'])
                 ) {
                     return response()->json([
                         'error' => 'Menores de idade precisam de responsável.'
@@ -70,7 +96,24 @@ class AuthController extends Controller
                         'error' => 'Responsável deve ser maior de idade.'
                     ], 422);
                 }
+
+                if ($dataResp->age > 100) {
+                    return response()->json([
+                        'error' => 'Responsavel deve ter no maximo 100 anos.'
+                    ], 422);
+                }
+
+                if (!in_array(strlen($validated['responsavel_telefone']), [10, 11], true)) {
+                    return response()->json([
+                        'error' => 'Telefone do responsÃ¡vel invÃ¡lido.'
+                    ], 422);
+                }
             }
+
+            $role = Role::firstOrCreate([
+                'name' => 'doador',
+                'guard_name' => 'api',
+            ]);
 
             $user = User::create([
                 'name'      => $validated['name'],
@@ -87,6 +130,7 @@ class AuthController extends Controller
                 'bairro'    => $validated['bairro'] ?? null,
                 'cidade'    => $validated['cidade'],
                 'uf'        => $validated['uf'] ?? null,
+                'role_id'   => $role->id,
                 'hemocentro_id' => null,
                 'status'    => true,
 
@@ -95,13 +139,16 @@ class AuthController extends Controller
                 'responsavel_data_nasc' => !empty($validated['responsavel_data_nasc'])
                     ? Carbon::createFromFormat('d/m/Y', $validated['responsavel_data_nasc'])->format('Y-m-d')
                     : null,
+                'responsavel_telefone' => $validated['responsavel_telefone'] ?? null,
             ]);
 
-            $user->assignRole('doador');
-            event(new Registered($user));
+            $user->assignRole($role);
+
             return response()->json([
                 'message' => 'Doador registrado com sucesso!',
-                'user'    => $user
+                'user'    => $user->fresh(),
+                'role'    => $role->name,
+                'roles'   => $user->getRoleNames()->toArray(),
             ], 201);
 
         } catch (\Exception $e) {
@@ -134,34 +181,162 @@ class AuthController extends Controller
 
     public function forgotPassword(Request $request)
     {
-        $request->validate(['email' => 'required|email']);
+        $validated = $request->validate([
+            'email' => 'required|email',
+        ]);
 
-        $status = Password::sendResetLink($request->only('email'));
+        $user = User::where('email', $validated['email'])->first();
 
-        return $status === Password::RESET_LINK_SENT
-            ? response()->json(['message' => __($status)], 200)
-            : response()->json(['error' => __($status)], 422);
+        if (!$this->canUsePasswordReset($user)) {
+            return response()->json([
+                'error' => 'Apenas doadores cadastrados podem recuperar a senha.'
+            ], 422);
+        }
+
+        DB::table('password_reset_tokens')
+            ->where('email', $validated['email'])
+            ->delete();
+
+        $token = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        DB::table('password_reset_tokens')->insert([
+            'email' => $validated['email'],
+            'token' => Hash::make($token),
+            'created_at' => now(),
+        ]);
+
+        try {
+            Mail::raw(
+                "Seu codigo de recuperacao do DoaVida: {$token}\n\nEste codigo expira em 15 minutos.",
+                function ($message) use ($validated) {
+                    $message->to($validated['email'])
+                        ->subject('Recuperacao de senha - DoaVida');
+                }
+            );
+        } catch (\Throwable $e) {
+            DB::table('password_reset_tokens')
+                ->where('email', $validated['email'])
+                ->delete();
+
+            Log::warning('Falha ao enviar codigo de recuperacao de senha.', [
+                'email' => $validated['email'],
+                'error' => $e->getMessage(),
+            ]);
+
+            $response = [
+                'error' => 'Nao foi possivel enviar o codigo por email. Verifique a configuracao de email do servidor.'
+            ];
+
+            if (app()->environment('local')) {
+                $response['details'] = $e->getMessage();
+            }
+
+            return response()->json($response, 500);
+        }
+
+        $response = [
+            'message' => 'Codigo de recuperacao enviado para o email informado.',
+        ];
+
+        if (app()->environment('testing')) {
+            $response['codeForDev'] = $token;
+        }
+
+        return response()->json($response, 200);
     }
 
     public function resetPassword(Request $request)
     {
-        $request->validate([
+        $this->normalizePasswordResetRequest($request);
+
+        $validated = $request->validate([
             'email' => 'required|email',
             'password' => 'required|min:6|confirmed',
             'token' => 'required'
         ]);
 
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function ($user, $password) {
-                $user->password = Hash::make($password);
-                $user->save();
-            }
-        );
+        $user = User::where('email', $validated['email'])->first();
 
-        return $status === Password::PASSWORD_RESET
-            ? response()->json(['message' => __($status)], 200)
-            : response()->json(['error' => __($status)], 422);
+        if (!$this->canUsePasswordReset($user)) {
+            return response()->json([
+                'error' => 'Apenas doadores cadastrados podem recuperar a senha.'
+            ], 422);
+        }
+
+        $record = DB::table('password_reset_tokens')
+            ->where('email', $validated['email'])
+            ->first();
+
+        if (!$record) {
+            return response()->json([
+                'error' => 'Codigo invalido ou expirado.'
+            ], 422);
+        }
+
+        $createdAt = Carbon::parse($record->created_at);
+        if ($createdAt->addMinutes(15)->isPast()) {
+            DB::table('password_reset_tokens')
+                ->where('email', $validated['email'])
+                ->delete();
+
+            return response()->json([
+                'error' => 'Codigo expirado. Solicite uma nova recuperacao.'
+            ], 422);
+        }
+
+        if (!Hash::check($validated['token'], $record->token)) {
+            return response()->json([
+                'error' => 'Codigo invalido ou expirado.'
+            ], 422);
+        }
+
+        $user->password = Hash::make($validated['password']);
+        $user->save();
+
+        DB::table('password_reset_tokens')
+            ->where('email', $validated['email'])
+            ->delete();
+
+        return response()->json([
+            'message' => 'Senha redefinida com sucesso.'
+        ], 200);
+    }
+
+    private function canUsePasswordReset(?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->hasRole('doador')) {
+            return true;
+        }
+
+        $doadorRoleId = Role::where('name', 'doador')->value('id');
+
+        return $doadorRoleId !== null && (int) $user->role_id === (int) $doadorRoleId;
+    }
+
+    private function normalizePasswordResetRequest(Request $request): void
+    {
+        $aliases = [
+            'password' => ['senha', 'nova_senha', 'new_password', 'newPassword'],
+            'password_confirmation' => ['confirmar_senha', 'senha_confirmation', 'confirmacao_senha', 'new_password_confirmation', 'confirmPassword'],
+            'token' => ['codigo', 'code'],
+        ];
+
+        foreach ($aliases as $field => $possibleNames) {
+            if ($request->filled($field)) {
+                continue;
+            }
+
+            foreach ($possibleNames as $possibleName) {
+                if ($request->filled($possibleName)) {
+                    $request->merge([$field => $request->input($possibleName)]);
+                    break;
+                }
+            }
+        }
     }
 
     public function login(Request $request)

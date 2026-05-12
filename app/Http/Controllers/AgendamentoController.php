@@ -111,4 +111,53 @@ class AgendamentoController extends Controller
 
         return response()->json(['message' => 'Agendamento cancelado com sucesso.'], 200);
     }
+
+    public function update(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        $agendamento = Agendamento::where('id', $id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$agendamento) {
+            return response()->json(['message' => 'Agendamento nÃ£o encontrado ou nÃ£o pertence a vocÃª.'], 404);
+        }
+
+        $request->validate([
+            'hemocentro_id' => [
+                'required',
+                'exists:hemocentros,id',
+                function ($attribute, $value, $fail) {
+                    $ativo = \App\Models\Hemocentro::where('id', $value)
+                        ->where('status_agendamento', 'ativo')
+                        ->exists();
+
+                    if (!$ativo) {
+                        $fail('Este hemocentro nÃ£o estÃ¡ aceitando agendamentos no momento.');
+                    }
+                },
+            ],
+            'data_hora_doacao' => 'required|date|after:now',
+        ]);
+
+        if ($user->tempo_restricao && Carbon::parse($user->tempo_restricao)->isFuture()) {
+            return response()->json([
+                'status'   => 'erro',
+                'mensagem' => 'VocÃª ainda nÃ£o estÃ¡ apto a doar sangue, aguarde o perÃ­odo de restriÃ§Ã£o terminar.',
+                'apto_em'  => Carbon::parse($user->tempo_restricao)->format('d/m/Y')
+            ], 403);
+        }
+
+        $agendamento->update([
+            'hemocentro_id' => $request->hemocentro_id,
+            'data_hora_doacao' => $request->data_hora_doacao,
+            'status_agendamento' => 'AGE',
+        ]);
+
+        return response()->json([
+            'message' => 'Agendamento reagendado com sucesso.',
+            'data' => $agendamento->fresh(),
+        ], 200);
+    }
 }
