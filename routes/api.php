@@ -6,6 +6,7 @@ use App\Http\Controllers\DoacaoController;
 use App\Http\Controllers\EstoqueController;
 use App\Http\Controllers\EstatisticaController;
 use App\Http\Controllers\HemocentroController;
+use App\Http\Controllers\RelatorioController;
 use App\Http\Controllers\TriagemController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
@@ -18,8 +19,6 @@ Route::prefix('auth')->group(function () {
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 });
 
-Route::get('/users', [UserController::class, 'index']);
-Route::get('/users/{id}', [UserController::class, 'show']);
 Route::get('/hemocentros', [HemocentroController::class, 'index']);
 Route::get('/hemocentros/{hemocentro}', [HemocentroController::class, 'show']);
 
@@ -31,10 +30,13 @@ Route::middleware('auth:sanctum')->group(function () {
         ]);
     });
 
+    Route::get('/users', [UserController::class, 'index']);
+    Route::get('/users/{id}', [UserController::class, 'show']);
     Route::put('/users/{id}', [UserController::class, 'update']);
     Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
     Route::prefix('auth')->group(function () {
+        Route::get('/users', [UserController::class, 'index']);
         Route::post('/users', [UserController::class, 'store']);
     });
 
@@ -52,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/agendamentos', [AgendamentoController::class, 'store']);
         Route::post('/agendamentos/{id}/confirmar', [AgendamentoController::class, 'confirmar']);
         Route::post('/agendamentos/{id}/cancelar', [AgendamentoController::class, 'cancelar']);
+        Route::post('/agendamentos/{id}/reabrir', [AgendamentoController::class, 'reabrir']);
         Route::delete('/agendamentos/{id}', [AgendamentoController::class, 'destroy']);
     });
 
@@ -73,6 +76,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/estatisticas/funcionario', [EstatisticaController::class, 'funcionario']);
     Route::get('/estatisticas/diretor', [EstatisticaController::class, 'diretor']);
     Route::get('/estatisticas/admin', [EstatisticaController::class, 'admin']);
+
+    // Novos endpoints de Relatórios e Dashboards
+    Route::prefix('reports')->group(function () {
+        Route::get('/donations-summary', [RelatorioController::class, 'donationsSummary']);
+        Route::get('/blood-stock', [RelatorioController::class, 'bloodStock']);
+        Route::get('/performance-monthly', [RelatorioController::class, 'performanceMonthly']);
+    });
+
+    Route::prefix('relatorios')->group(function () {
+        Route::get('/doacoes', [RelatorioController::class, 'pdfDoacoes']);
+        Route::get('/estoque', [RelatorioController::class, 'pdfEstoque']);
+        Route::get('/doadores', [RelatorioController::class, 'pdfDoadores']);
+    });
 
     Route::prefix('auth')->group(function () {
         Route::post('/doacoes', [DoacaoController::class, 'store']);

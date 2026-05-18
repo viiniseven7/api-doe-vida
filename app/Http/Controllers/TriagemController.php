@@ -15,13 +15,29 @@ class TriagemController extends Controller
         $query = Triagem::where('status_triagem', '!=', 'E')
                         ->with(['doador', 'funcionario', 'hemocentro', 'agendamento']);
 
+        // Filtro por papel
         if ($user->role_id == 1) {
             $query->where('user_id', $user->id);
         } elseif ($user->hemocentro_id) {
             $query->where('hemocentro_id', $user->hemocentro_id);
+        } elseif ($request->filled('hemocentro_id')) {
+            $query->where('hemocentro_id', $request->hemocentro_id);
         }
 
-        return response()->json($query->get());
+        // Filtros dinâmicos
+        if ($request->filled('status')) {
+            $query->where('status_triagem', $request->status);
+        }
+
+        if ($request->filled('apto')) {
+            $query->where('apto', $request->boolean('apto'));
+        }
+
+        if ($request->filled('data')) {
+            $query->whereDate('data_triagem', $request->data);
+        }
+
+        return response()->json($query->orderBy('data_triagem', 'desc')->get());
     }
 
     public function store(Request $request)

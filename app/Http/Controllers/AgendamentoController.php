@@ -20,11 +20,23 @@ class AgendamentoController extends Controller
         $user = Auth::user();
         $query = Agendamento::with(['hemocentro', 'doador', 'triagem', 'doacao']);
 
+        // Filtro por papel
         if ($user->role_id == 1) { // Doador
             $query->where('user_id', $user->id)
                   ->whereIn('status_agendamento', ['AGE', 'CON']);
         } elseif ($user->hemocentro_id) { // Funcionário vinculado
             $query->where('hemocentro_id', $user->hemocentro_id);
+        } elseif ($request->filled('hemocentro_id')) { // Admin filtrando
+            $query->where('hemocentro_id', $request->hemocentro_id);
+        }
+
+        // Filtros dinâmicos via query string
+        if ($request->filled('status')) {
+            $query->where('status_agendamento', $request->status);
+        }
+
+        if ($request->filled('data')) {
+            $query->whereDate('data_hora_doacao', $request->data);
         }
 
         $agendamentos = $query->orderBy('data_hora_doacao', 'desc')->get();
@@ -158,6 +170,34 @@ class AgendamentoController extends Controller
 
         return response()->json([
             'message' => 'Agendamento cancelado com sucesso.',
+            'data'    => $agendamento
+        ]);
+    }
+
+    /**
+     * Reabrir agendamento (Doador ou Funcionário).
+     */
+    public function reabrir($id)
+    {
+        $user = Auth::user();
+        $agendamento = Agendamento::findOrFail($id);
+
+        if ($user->role_id == 1 && $agendamento->user_id != $user->id) {
+            return response()->json(['message' => 'Acesso negado.'], 403);
+        }
+
+        // Regra de Negócio: Não reabrir se a data já passou
+        if (Carbon::parse($agendamento->data_hora_doacao)->isPast()) {
+            return response()->json([
+                'status' => 'erro',
+                'message' => 'Não é possível reabrir um agendamento com data passada.'
+            ], 400);
+        }
+
+        $agendamento->update(['status_agendamento' => 'AGE']);
+
+        return response()->json([
+            'message' => 'Agendamento reaberto com sucesso.',
             'data'    => $agendamento
         ]);
     }

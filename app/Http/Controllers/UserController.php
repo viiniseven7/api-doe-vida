@@ -70,9 +70,37 @@ class UserController extends Controller
         return response()->json($user, 201);
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        return User::all();
+        $user = $request->user();
+        $query = User::query();
+
+        // Filtros de busca
+        $query->when($request->search, function ($q, $search) {
+            $q->where('name', 'like', "%{$search}%");
+        });
+
+        $query->when($request->cpf, function ($q, $cpf) {
+            $q->where('cpf', 'like', "%{$cpf}%");
+        });
+
+        // Se for Funcionário ou Diretor, filtra doadores que já doaram no hemocentro deles
+        if (in_array($user->role_id, [2, 3])) { // 2 = Funcionario, 3 = Diretor
+            $hemocentroId = $user->hemocentro_id;
+
+            $query->where('role_id', 1) // Apenas doadores
+                ->whereHas('triagens', function ($q) use ($hemocentroId) {
+                    $q->where('hemocentro_id', $hemocentroId);
+                });
+        } 
+        // Se for Admin (4), vê tudo sem filtro adicional.
+        // Se for Doador (1), por segurança, não deveria listar outros usuários, 
+        // mas se listar, verá apenas a si mesmo.
+        elseif ($user->role_id == 1) {
+            $query->where('id', $user->id);
+        }
+
+        return $query->orderBy('name')->get();
     }
 
     public function show(int $id)
