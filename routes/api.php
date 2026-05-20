@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AgendamentoController;
+use App\Http\Controllers\AlertaMedicoController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DoacaoController;
 use App\Http\Controllers\EstoqueController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\EstatisticaController;
 use App\Http\Controllers\HemocentroController;
 use App\Http\Controllers\TriagemController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserTipoSangueHistoricoController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -22,6 +24,7 @@ Route::get('/users', [UserController::class, 'index']);
 Route::get('/users/{id}', [UserController::class, 'show']);
 Route::get('/hemocentros', [HemocentroController::class, 'index']);
 Route::get('/hemocentros/{hemocentro}', [HemocentroController::class, 'show']);
+Route::get('/triagens/perguntas', [TriagemController::class, 'perguntas']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', function (Request $request) {
@@ -30,6 +33,8 @@ Route::middleware('auth:sanctum')->group(function () {
             'roles' => $request->user()->getRoleNames(),
         ]);
     });
+    Route::delete('/auth/minha-conta', [AuthController::class, 'excluirConta']);
+    Route::get('/auth/meus-dados', [AuthController::class, 'meusDados']);
 
     Route::put('/users/{id}', [UserController::class, 'update']);
     Route::delete('/users/{id}', [UserController::class, 'destroy']);
@@ -62,6 +67,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/triagens', [TriagemController::class, 'store']);
         Route::put('/triagens/{id}', [TriagemController::class, 'update']);
         Route::delete('/triagens/{id}', [TriagemController::class, 'destroy']);
+    });
+
+    Route::get('/alertas-medicos', [AlertaMedicoController::class, 'index']);
+    Route::get('/alertas-medicos/{id}', [AlertaMedicoController::class, 'show']);
+
+    Route::prefix('auth')->group(function () {
+        Route::post('/alertas-medicos', [AlertaMedicoController::class, 'store']);
+        Route::put('/alertas-medicos/{id}', [AlertaMedicoController::class, 'update']);
+        Route::delete('/alertas-medicos/{id}', [AlertaMedicoController::class, 'destroy']);
+    });
+
+    Route::prefix('auth')->group(function () {
+        Route::get('/doadores/{userId}/tipo-sangue-historico', [UserTipoSangueHistoricoController::class, 'index']);
+        Route::post('/doadores/{userId}/tipo-sangue-historico', [UserTipoSangueHistoricoController::class, 'store']);
     });
 
     Route::get('/doacoes', [DoacaoController::class, 'index']);
