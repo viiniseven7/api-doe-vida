@@ -13,17 +13,18 @@ Os caminhos abaixo são relativos ao prefixo padrão `/api` do Laravel.
 
 ### POST /api/auth/register
 - **Controller**: `AuthController@register`
-- **Body JSON esperado**: `name`, `email`, `password`, `cpf`, `sexo`, `data_nasc`, `cep`, `rua`, `numero`, `cidade`, etc.
-- **Perfil**: O sistema define automaticamente `role_id = 1` (Doador).
-
-### POST /api/auth/login
-- **Controller**: `AuthController@login`
-- **Body JSON esperado**: `email`, `password`.
-- **Retorna**: Token de acesso Sanctum.
+- **Body JSON esperado**: `name`, `email`, `password`, `cpf`, ..., `lgpd_aceite` (obrigatório), `respostas_pre_triagem` (opcional).
+- **Ação**: Cria o usuário, registra o aceite da LGPD e as respostas iniciais de elegibilidade.
 
 ### GET /api/auth/me
 - **Middleware**: `auth:sanctum`
-- **Retorna usuário autenticado e seus papéis (roles)**.
+- **Retorna**: Usuário autenticado e seus papéis.
+
+### DELETE /api/auth/minha-conta
+- **Ação**: Anonimiza dados sensíveis e aplica soft delete (LGPD).
+
+### GET /api/auth/meus-dados
+- **Ação**: Retorna todos os dados vinculados ao usuário (Portabilidade LGPD).
 
 ---
 
@@ -89,26 +90,18 @@ Os caminhos abaixo são relativos ao prefixo padrão `/api` do Laravel.
 ### GET /api/triagens
 - **Filtro**: Doador vê as suas; Funcionário vê as do seu hemocentro.
 
+### GET /api/triagens/perguntas
+- **Ação**: Retorna perguntas e opções dinâmicas.
+- **Parâmetros**: `?bloco=N` (0=Pré-triagem, 1=Geral, 3=Recente, 4=Comportamental).
+
 ### POST /api/auth/triagens
-- **Ação**: Efetiva a triagem de um doador.
+- **Ação**: Efetiva a triagem clínica completa.
 - **Body JSON esperado**:
-  - `agendamento_id`: **Obrigatório**. ID do agendamento vinculado.
-  - `user_id`: **Obrigatório**. ID do doador.
-  - `data_triagem`: **Obrigatório**. Data da realização (`YYYY-MM-DD`).
-  - `apto`: **Obrigatório**. Boolean (`true`/`false`).
-  - `motivo_inaptidao`: **Obrigatório se `apto` for `false`**.
-  - `observacoes`: (Opcional) Notas adicionais.
-- **Exemplo**:
-```json
-{
-    "agendamento_id": 1,
-    "user_id": 5,
-    "data_triagem": "2026-05-18",
-    "apto": true,
-    "observacoes": "Doador em boas condições"
-}
-```
-- **Status inicial**: `C` (Concluída).
+  - `agendamento_id`, `user_id`, `data_triagem`.
+  - `sinais_vitais`: Objeto com `peso`, `pressao_sistolica`, `pressao_diastolica`, `temperatura`, `frequencia_cardiaca`, `hemoglobina`, `hematocrito`.
+  - `respostas`: Array de `{pergunta_id, opcao_id}`.
+  - `aptidao`: Objeto com `resultado` (apto/inapto_temporario/inapto_definitivo), `categoria_inaptidao`, `valido_ate`, `observacoes_internas`.
+- **Regra**: Gera notificação automática para o doador baseada no resultado.
 
 ### DELETE /api/auth/triagens/{id}
 - **Ação**: Muda o status para `E` (Excluída).
@@ -174,6 +167,31 @@ Os caminhos abaixo são relativos ao prefixo padrão `/api` do Laravel.
 
 ---
 
+## Alertas Médicos
+
+### GET /api/alertas-medicos
+- **Doador**: Vê convocações direcionadas a ele.
+- **Funcionário**: Vê alertas criados pelo seu hemocentro.
+
+---
+
+## Certificados
+
+### GET /api/certificados
+- **Ação**: Lista doações concluídas que podem gerar certificado.
+
+### GET /api/certificados/{id}/pdf
+- **Ação**: Download do PDF oficial do certificado.
+
+---
+
+## Histórico de Tipo Sanguíneo
+
+### POST /api/auth/doadores/{id}/tipo-sangue-historico
+- **Ação**: Altera o tipo de sangue e registra o motivo para auditoria.
+
+---
+
 ## Relatórios & Estatísticas (Dashboards)
 Endpoints otimizados para dashboards gerenciais com dados agregados. Exigem autenticação.
 
@@ -222,7 +240,8 @@ Endpoints que geram arquivos PDF para download.
 
 ### Status Agendamento
 - `AGE`: Agendado (Pendente)
-- `CON`: Confirmado
+- `CON`: Confirmado (Presença registrada/Em triagem)
+- `FIN`: Finalizado (Doação concluída com sucesso)
 - `CAN`: Cancelado
 - `EXC`: Excluído (por reagendamento)
 

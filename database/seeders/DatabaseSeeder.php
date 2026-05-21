@@ -15,18 +15,16 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-
         $this->call([
             RoleSeeder::class,
             HemocentroSeeder::class,
             UserSeeder::class,
+            TriagemPerguntaSeeder::class,
             AgendamentoSeeder::class,
             TriagemSeeder::class,
             DoacaoSeeder::class,
             EstoqueSeeder::class,
         ]);
-
-        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        
     }
 }

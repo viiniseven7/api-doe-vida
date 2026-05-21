@@ -2,40 +2,45 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Doacao;
-use App\Models\User;
 use App\Models\Hemocentro;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Seeder;
 
 class DoacaoSeeder extends Seeder
 {
     public function run(): void
     {
-        Doacao::truncate();
         $doadores = User::where('role_id', 1)->get();
         $funcionarios = User::where('role_id', 2)->get();
-        $hemocentros = Hemocentro::all();
+        $hemocentros = Hemocentro::where('status', 1)->get();
+        $tiposSangue = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+        $minutos = [0, 15, 30, 45];
 
-        if ($doadores->isEmpty() || $hemocentros->isEmpty()) return;
+        if ($doadores->isEmpty() || $funcionarios->isEmpty() || $hemocentros->isEmpty()) {
+            $this->command->warn('Doacoes nao criadas: faltam doadores, funcionarios ou hemocentros.');
+            return;
+        }
 
-        // Criar 100 Doações para ter volume estatístico
-        for ($i = 0; $i < 100; $i++) {
+        for ($i = 0; $i < 20; $i++) {
             $doador = $doadores->random();
-            // Data aleatória nos últimos 12 meses para testar gráfico mensal
-            $dataDoacao = Carbon::now()->subDays(rand(0, 365))->subHours(rand(0, 23));
-            
+            $dataDoacao = Carbon::now()
+                ->subDays(rand(1, 180))
+                ->setTime(rand(8, 17), $minutos[array_rand($minutos)]);
+
             Doacao::create([
-                'user_id'              => $doador->id,
-                'hemocentro_id'        => $hemocentros->random()->id,
-                'funcionario_id'       => $funcionarios->random()->id,
-                'data_hora_doacao'     => $dataDoacao,
-                'tipo_sangue'          => $doador->tipo_sang ?? 'O+',
-                'quantidade'           => rand(400, 500),
+                'user_id' => $doador->id,
+                'hemocentro_id' => $hemocentros->random()->id,
+                'funcionario_id' => $funcionarios->random()->id,
+                'data_hora_doacao' => $dataDoacao,
+                'tipo_sangue' => $doador->tipo_sang ?? $tiposSangue[array_rand($tiposSangue)],
+                'quantidade' => 450,
                 'data_validade_sangue' => $dataDoacao->copy()->addDays(35),
+                'atualizado_em' => now(),
             ]);
         }
 
-        $this->command->info('100 Doações históricas criadas para testes de relatórios!');
+        $this->command->info('20 doacoes de exemplo criadas!');
     }
 }

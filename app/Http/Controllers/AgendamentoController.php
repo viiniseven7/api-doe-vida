@@ -23,8 +23,9 @@ class AgendamentoController extends Controller
         // Filtro por papel
         if ($user->role_id == 1) { // Doador
             $query->where('user_id', $user->id)
-                  ->whereIn('status_agendamento', ['AGE', 'CON']);
+                  ->whereIn('status_agendamento', ['AGE', 'CON', 'FIN']);
         } elseif ($user->hemocentro_id) { // Funcionário vinculado
+            // Funcionários devem ver cancelados para poderem reabrir se necessário
             $query->where('hemocentro_id', $user->hemocentro_id);
         } elseif ($request->filled('hemocentro_id')) { // Admin filtrando
             $query->where('hemocentro_id', $request->hemocentro_id);
@@ -55,6 +56,7 @@ class AgendamentoController extends Controller
         $user = Auth::user();
         $agendamentos = Agendamento::with(['hemocentro', 'triagem', 'doacao'])
             ->where('user_id', $user->id)
+            ->withTrashed() // Inclui deletados se houver
             ->orderBy('data_hora_doacao', 'desc')
             ->get();
 
@@ -66,6 +68,7 @@ class AgendamentoController extends Controller
 
     public function store(Request $request)
     {
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
         $request->validate([
@@ -84,6 +87,16 @@ class AgendamentoController extends Controller
             ],
             'data_hora_doacao' => 'required|date|after:now',
         ]);
+
+        // Validação de Elegibilidade (Autoexame)
+        $elegibilidadeValida = $user->autoexame_validade && $user->autoexame_validade->isFuture();
+        if (!$user->apto_pelo_autoexame || !$elegibilidadeValida) {
+            return response()->json([
+                'status' => 'erro',
+                'message' => 'Você precisa realizar o teste de elegibilidade e estar apto antes de agendar.',
+                'code' => 'REQUIRES_ELIGIBILITY'
+            ], 403);
+        }
 
         if ($user->tempo_restricao && Carbon::parse($user->tempo_restricao)->isFuture()) {
             return response()->json([

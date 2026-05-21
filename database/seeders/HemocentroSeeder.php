@@ -42,5 +42,41 @@ class HemocentroSeeder extends Seeder
                 'status' => '1',
             ]
         );
+
+        Hemocentro::updateOrCreate(
+            ['cnpj' => '12345678000190'],
+            [
+                'nome' => 'Hemocentro Sao Jose dos Pinhais',
+                'telefone' => '(41) 3381-2400',
+                'email' => 'hemosjp@doevida.test',
+                'bairro' => 'Centro',
+                'uf' => 'PR',
+                'endereco' => 'Rua Isabel A Redentora',
+                'cidade' => 'Sao Jose dos Pinhais',
+                'numero' => '1434',
+                'razao_social' => 'Centro de Hemoterapia Sao Jose dos Pinhais',
+                'status_agendamento' => 'ativo',
+                'status' => '1',
+                'criado_por' => 'seeder',
+            ]
+        );
+
+        Hemocentro::updateOrCreate(
+            ['cnpj' => '98765432000110'],
+            [
+                'nome' => 'Hemocentro Araucaria',
+                'telefone' => '(41) 3614-1500',
+                'email' => 'hemoaraucaria@doevida.test',
+                'bairro' => 'Fazenda Velha',
+                'uf' => 'PR',
+                'endereco' => 'Rua Pedro Druszcz',
+                'cidade' => 'Araucaria',
+                'numero' => '111',
+                'razao_social' => 'Centro de Hemoterapia Araucaria',
+                'status_agendamento' => 'ativo',
+                'status' => '1',
+                'criado_por' => 'seeder',
+            ]
+        );
     }
 }

@@ -5,16 +5,19 @@ Todas as pendências críticas relatadas foram resolvidas. O Back-end agora supo
 ---
 
 ## 🟢 1. BLOQUEIO CRÍTICO RESOLVIDO
-*   **Arquivo:** `app/Http/Controllers/AgendamentoController.php`
-*   **Status:** Erro de sintaxe na linha 18 (variável $request ausente) corrigido.
-*   **Validação:** Script validado com `php -l`. Erro 500 resolvido.
+
+* **Arquivo:** `app/Http/Controllers/AgendamentoController.php`
+* **Status:** Erro de sintaxe na linha 18 (variável $request ausente) corrigido.
+* **Validação:** Script validado com `php -l`. Erro 500 resolvido.
 
 ---
 
 ## 🛠️ 2. MUDANÇAS ESTRUTURAIS (Importante para o Front)
 
 ### A. Listagem de Agendamentos (`GET /api/agendamentos`)
+
 Agora retorna os relacionamentos necessários para a lógica de botões:
+
 ```json
 {
   "id": 1,
@@ -32,24 +35,28 @@ Agora retorna os relacionamentos necessários para a lógica de botões:
   }
 }
 ```
-*   **Ação do Front:** Use `agendamento.triagem` para liberar o botão de Doação e `agendamento.doacao` para marcar como concluído.
+
+* **Ação do Front:** Use `agendamento.triagem` para liberar o botão de Doação e `agendamento.doacao` para marcar como concluído.
 
 ### B. Objeto Usuário (`/auth/me`)
-*   O campo `tempo_restricao` foi adicionado ao modelo e está habilitado no retorno.
-*   Retorno garantido: `null` ou data no formato `"YYYY-MM-DD"`.
+
+* O campo `tempo_restricao` foi adicionado ao modelo e está habilitado no retorno.
+* Retorno garantido: `null` ou data no formato `"YYYY-MM-DD"`.
 
 ---
 
 ## 🛡️ 3. REGRAS DE NEGÓCIO IMPLEMENTADAS
-1.  **Triagem Única:** O sistema bloqueia (Erro 409) se tentar criar uma segunda triagem para o mesmo agendamento.
-2.  **Doação Segura:** O Back-end agora valida se a doação está vinculada a uma triagem onde `apto = true`. Se for inapto, a doação é bloqueada.
-3.  **Vínculo Obrigatório:** Agora é obrigatório enviar `agendamento_id` em ambos os fluxos para garantir a integridade.
+
+1. **Triagem Única:** O sistema bloqueia (Erro 409) se tentar criar uma segunda triagem para o mesmo agendamento.
+2. **Doação Segura:** O Back-end agora valida se a doação está vinculada a uma triagem onde `apto = true`. Se for inapto, a doação é bloqueada.
+3. **Vínculo Obrigatório:** Agora é obrigatório enviar `agendamento_id` em ambos os fluxos para garantir a integridade.
 
 ---
 
 ## 🚀 4. RECAPITULANDO ENDPOINTS PARA O FRONT
 
 **Triagem (`POST /api/auth/triagens`):**
+
 ```json
 {
   "agendamento_id": 1,
@@ -61,6 +68,7 @@ Agora retorna os relacionamentos necessários para a lógica de botões:
 ```
 
 **Doação (`POST /api/auth/doacoes`):**
+
 ```json
 {
   "agendamento_id": 1,
@@ -73,4 +81,22 @@ Agora retorna os relacionamentos necessários para a lógica de botões:
 ```
 
 ---
+
 **Status Final:** Back-end 100% operacional. Pode prosseguir com os testes de interface.
+
+┌──────────────────────────────┬───────────────────────────────────────────────┐
+  │ Pergunta                     │ Resposta para Aprovar                         │
+  ├──────────────────────────────┼───────────────────────────────────────────────┤
+  │ Sentindo-se bem hoje?        │ Sim                                           │
+  │ Dormiu pelo menos 6h?        │ Sim                                           │
+  │ Bebeu álcool (12h)?          │ Não                                           │
+  │ Está em jejum?               │ Não (Doador não pode estar em jejum absoluto) │
+  │ Fumou (2h)?                  │ Não                                           │
+  │ Febre/Gripe (7 dias)?        │ Não                                           │
+  │ Toma medicamento?            │ Não                                           │
+  │ Cirurgia (6 meses)?          │ Não                                           │
+  │ Vacina (30 dias)?            │ Não                                           │
+  │ Tatuagem/Piercing (6 meses)? │ Não                                           │
+  │ Área de Malária (30 dias)?   │ Não                                           │
+  │ Risco de Infecção?           │ Não                                           │
+  └──────────────────────────────┴───────────────────────────────────────────────┘

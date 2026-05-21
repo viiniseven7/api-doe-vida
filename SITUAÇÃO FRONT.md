@@ -1,62 +1,155 @@
-## 📊 Módulo: Relatórios & Estatísticas — GUIA DE CONSUMO (BACK-END PRONTO)
 
-Os endpoints de relatórios e estatísticas foram implementados e otimizados. Abaixo, as instruções detalhadas para o Front-end.
+# Situação Atual do Front-end - DoaVida
+
+Documento atualizado para refletir o estado real do front, os fluxos já ligados na API e os pontos que dependem do backend para ficarem corretos de verdade.
 
 ---
 
-### 1. Dashboards (JSON)
+## Autenticação
 
-Estes endpoints retornam dados agregados, ideais para construção de gráficos (Chart.js, Recharts, etc.).
+- Login usa `POST /api/auth/login`.
+- Sessão usa `GET /api/auth/me`.
+- O token é enviado pelo interceptor de `src/services/api.ts`.
+- Atenção: o front ainda precisa manter uma única chave de token no `localStorage`. Hoje há histórico de uso entre `token` e `access_token`; isso deve ficar padronizado com o backend.
 
-| Endpoint                             | Método | Descrição                                         | Parâmetros           |
-| :----------------------------------- | :------ | :-------------------------------------------------- | :-------------------- |
-| `/api/reports/donations-summary`   | `GET` | Totais por status (Agendado, Concluído, etc.)      | `dias` (padrão 30) |
-| `/api/reports/blood-stock`         | `GET` | Saldo total de bolsas de sangue por tipo            | -                     |
-| `/api/reports/performance-monthly` | `GET` | Doações nos últimos 12 meses (Gráfico de Linha) | -                     |
+---
 
-**Exemplo de Resposta (`donations-summary`):**
+## Cadastro + Elegibilidade
 
-```json
-[
-  { "label": "Agendado", "total": 15 },
-  { "label": "Concluído", "total": 42 },
-  { "label": "Cancelado", "total": 3 }
-]
+### Estado atual
+
+- O teste de elegibilidade (`EligibilityTestPage.tsx`) é um questionário local.
+- Quando o usuário termina como apto, o front grava uma marca temporária em `sessionStorage`.
+- A tela de cadastro (`RegistrationDonationPage.tsx`) redireciona para `/teste-elegibilidade` se o usuário não logado tentar cadastrar sem ter feito o teste.
+
+### Limitação importante
+
+Isso não é validação real de negócio. O backend ainda não recebe nem salva o exame de elegibilidade.
+
+Para virar regra segura, precisa de backend com algo como:
+
+- `POST /api/auth/elegibilidade`
+- `GET /api/auth/elegibilidade/atual`
+
+E o backend deveria bloquear `POST /api/auth/agendamentos` caso o usuário não tenha elegibilidade válida.
+
+Sem isso, o front só melhora o fluxo visual, mas não impede burla por API, aba nova, limpeza de sessão ou chamada direta.
+
+---
+
+## Painel do Doador
+
+Arquivo principal: `src/components/dashboards/DonorDashboard.tsx`.
+
+### Próxima doação
+
+- Usa `GET /api/agendamentos`.
+- Pelo DOC-API, para doador essa rota retorna apenas agendamentos ativos (`AGE`) ou confirmados (`CON`).
+- Por isso ela não deve ser usada para histórico concluído.
+
+### Histórico
+
+- Agora deve usar `GET /api/agendamentos/historico`.
+- Essa rota é a correta para exibir agendamentos finalizados, cancelados e excluídos.
+
+### Minhas Coletas
+
+- Usa `GET /api/doacoes`.
+- Se o funcionário registrou uma doação completa, ela aparecer em "Minhas Coletas" está correto.
+- "Histórico" é a visão de agendamentos; "Minhas Coletas" é a visão de doações/coletas registradas.
+
+### Restrição do doador
+
+- O botão "Agendar Doação" não deve ficar desabilitado/translúcido.
+- O comportamento melhor é deixar clicável e mostrar mensagem informando que o doador está temporariamente inelegível.
+
+### Meus Certificados
+
+- Atualmente é placeholder visual.
+- Não existe rota documentada para listar ou gerar certificado.
+- Para funcionar de verdade, precisa de backend, por exemplo:
+  - `GET /api/certificados`
+  - `GET /api/certificados/{id}/pdf`
+
+---
+
+## Painel do Funcionário
+
+Arquivo principal: `src/components/dashboards/StaffDashboard.tsx`.
+
+### Agenda
+
+- Usa `GET /api/agendamentos`.
+- Pelo DOC-API, funcionário deve ver todos os agendamentos do seu hemocentro.
+- O front filtra pela data selecionada.
+
+### Confirmar presença
+
+- Usa `POST /api/auth/agendamentos/{id}/confirmar`.
+- Muda o status para `CON`.
+
+### Cancelar
+
+- Usa `POST /api/auth/agendamentos/{id}/cancelar`.
+- Muda o status para `CAN`.
+- O front atualiza localmente o item cancelado para não depender de o backend devolver cancelados imediatamente na listagem.
+
+### Reabrir
+
+- Usa `POST /api/auth/agendamentos/{id}/reabrir`.
+- O botão aparece somente para status `CAN` e se a data da doação ainda não passou.
+- Se o botão não aparecer, as causas mais prováveis são:
+  - o backend não está retornando agendamentos cancelados em `GET /api/agendamentos`;
+  - o status retornado não é `CAN`;
+  - a data do agendamento já passou;
+  - algum endpoint auxiliar estava quebrando o carregamento da agenda.
+
+O front foi ajustado para a agenda não depender de `/estoque` ou `/estatisticas/funcionario`; se esses endpoints falharem, a agenda ainda deve carregar.
+
+### Registrar triagem e doação
+
+- Triagem usa `POST /api/auth/triagens`.
+- Body esperado inclui:
+
+  - `agendamento_id`
+  - `user_id`
+  - `hemocentro_id`
+  - `data_triagem`
+  - `apto`
+  - `motivo_inaptidao`
+  - `observacoes`
+- Doação usa `POST /api/auth/doacoes`.
+- Body esperado inclui:
+
+  - `agendamento_id`
+  - `triagem_id`
+  - `user_id`
+  - `hemocentro_id`
+  - `data_hora_doacao`
+  - `tipo_sangue`
+  - `quantidade`
+  - `data_validade_sangue`
+
+Após sucesso, o front mantém o card visível como "Doação realizada", com visual verde.
+
+---
+
+## Pontos que dependem do backend
+
+- Persistir exame de elegibilidade no usuário.
+- Bloquear agendamento sem elegibilidade válida.
+- Gerar/listar certificados.
+- Garantir que `GET /api/agendamentos` retorne cancelados para funcionário, se a regra for permitir reabrir pela agenda.
+- Padronizar o status de doação concluída: hoje o front aceita `FIN`, `DOA`, `REALIZADA` e presença de `doacao_id`, mas o ideal é o backend ter um padrão único.
+
+---
+
+## Observações técnicas
+
+- Base URL: `http://localhost:8000/api`.
+- O build pode falhar se `node_modules` estiver quebrado pelo pacote opcional do Rollup. Nesse caso, rodar:
+
+```bash
+npm install
+npm run build
 ```
-
----
-
-### 2. Relatórios para Download (PDF)
-
-Estes endpoints geram arquivos PDF reais. O front-end deve abrir estas URLs em uma nova aba ou usar um link de download.
-
-* **Doações:** `GET /api/relatorios/doacoes?periodo=30`
-* **Estoque:** `GET /api/relatorios/estoque`
-* **Doadores:** `GET /api/relatorios/doadores`
-
-> **Nota de Segurança:** Estes endpoints exigem o token Bearer no Header. Para download direto, recomenda-se que o Front-end busque o arquivo como `blob` e gere um link local ou use uma estratégia de `window.open` passando o token (se configurado).
-
----
-
-### 3. Regras de Filtro por Papel (Roles)
-
-O Back-end aplica filtros automáticos baseados no usuário autenticado:
-
-1. **ADMIN (Geral):**
-   * Vê dados de **todas as unidades** por padrão.
-   * Pode filtrar uma unidade específica enviando `?hemocentro_id=X` na URL.
-2. **DIRETOR / FUNCIONÁRIO:**
-   * Vê **apenas os dados da sua unidade** (vínculo automático via `hemocentro_id` do perfil). Não é necessário enviar parâmetros de ID.
-
----
-
-### 4. Dicas de Implementação no Front
-
-* **Filtros de Período:** Use o parâmetro `?dias=X` para Dashboards e `?periodo=X` para PDFs.
-* **Cores dos Gráficos:** No gráfico de estoque, utilize cores de alerta (vermelho) quando o valor retornado for menor que o esperado pelo seu design, embora o PDF já venha com a marcação "CRÍTICO".
-* **Tipos Sanguíneos:** A lista segue a ordem padrão: `['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']`.
-
----
-
-**Status da Implementação:** ✅ Concluído e Disponível.
-**Biblioteca PDF:** `barryvdh/laravel-dompdf` (Instalada).

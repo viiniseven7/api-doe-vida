@@ -6,7 +6,6 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
-use Carbon\Carbon;
 
 class UserSeeder extends Seeder
 {
@@ -16,46 +15,66 @@ class UserSeeder extends Seeder
         $roleFuncionario = $this->role('funcionario');
         $roleDiretor = $this->role('diretor');
         $roleAdmin = $this->role('admin');
-        
         $tipos = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-        $bairros = ['Centro', 'Jardins', 'Vila Maria', 'Itaquera', 'Pinheiros', 'Lapa', 'Santo Amaro', 'Moema', 'Morumbi', 'Santana'];
-        $cidades = ['São Paulo', 'Santo André', 'São Bernardo', 'São Caetano'];
 
-        // Criar 30 Doadores diversos
-        for ($i = 1; $i <= 30; $i++) {
-            $dataNasc = Carbon::now()->subYears(rand(16, 65))->subDays(rand(1, 365));
-            
+        for ($i = 1; $i <= 8; $i++) {
             $user = User::updateOrCreate(
                 ['email' => "doador$i@email.com"],
                 [
-                    'name' => "Doador " . ($i % 2 == 0 ? "Masculino " : "Feminino ") . $i,
+                    'name' => "Doador Exemplo $i",
                     'password' => Hash::make('password'),
-                    'cpf' => str_pad($i, 11, '0', STR_PAD_LEFT),
+                    'cpf' => "1234567890$i",
                     'tipo_sang' => $tipos[array_rand($tipos)],
                     'sexo' => ($i % 2 == 0) ? 'M' : 'F',
-                    'telefone' => "(11) 9" . rand(7000, 9999) . "-" . rand(1000, 9999),
-                    'data_nasc' => $dataNasc->toDateString(),
+                    'telefone' => "(11) 99999-000$i",
+                    'data_nasc' => '1990-01-01',
                     'role_id' => $roleDoador->id,
-                    'bairro' => $bairros[array_rand($bairros)],
-                    'cidade' => $cidades[array_rand($cidades)],
-                    'uf' => 'SP',
-                    'status' => true,
                 ]
             );
 
             $user->syncRoles([$roleDoador]);
         }
 
-        // Funcionários e Diretores
-        $this->createStaff('funcionario1@email.com', 'Funcionario Centro', $roleFuncionario, 1);
-        $this->createStaff('funcionario2@email.com', 'Funcionario Norte', $roleFuncionario, 2);
-        $this->createStaff('diretor@email.com', 'Diretor Geral Unidade 1', $roleDiretor, 1);
-        
-        // Admin
+        $funcionario1 = User::updateOrCreate(
+            ['email' => 'funcionario1@email.com'],
+            [
+                'name' => 'Funcionario H1',
+                'password' => Hash::make('password'),
+                'cpf' => '11111111111',
+                'role_id' => $roleFuncionario->id,
+                'hemocentro_id' => 1,
+            ]
+        );
+        $funcionario1->syncRoles([$roleFuncionario]);
+
+        $funcionario2 = User::updateOrCreate(
+            ['email' => 'funcionario2@email.com'],
+            [
+                'name' => 'Funcionario H2',
+                'password' => Hash::make('password'),
+                'cpf' => '22222222222',
+                'role_id' => $roleFuncionario->id,
+                'hemocentro_id' => 2,
+            ]
+        );
+        $funcionario2->syncRoles([$roleFuncionario]);
+
+        $diretor = User::updateOrCreate(
+            ['email' => 'diretor@email.com'],
+            [
+                'name' => 'Diretor H1',
+                'password' => Hash::make('password'),
+                'cpf' => '33333333333',
+                'role_id' => $roleDiretor->id,
+                'hemocentro_id' => 1,
+            ]
+        );
+        $diretor->syncRoles([$roleDiretor]);
+
         $admin = User::updateOrCreate(
             ['email' => 'admin@email.com'],
             [
-                'name' => 'Admin Sistema',
+                'name' => 'Admin Geral',
                 'password' => Hash::make('password'),
                 'cpf' => '44444444444',
                 'role_id' => $roleAdmin->id,
@@ -63,22 +82,7 @@ class UserSeeder extends Seeder
         );
         $admin->syncRoles([$roleAdmin]);
 
-        $this->command->info('30 Doadores e equipe técnica criados com sucesso!');
-    }
-
-    private function createStaff($email, $name, $role, $hemocentroId)
-    {
-        $user = User::updateOrCreate(
-            ['email' => $email],
-            [
-                'name' => $name,
-                'password' => Hash::make('password'),
-                'cpf' => rand(100000000, 999999999) . '00',
-                'role_id' => $role->id,
-                'hemocentro_id' => $hemocentroId,
-            ]
-        );
-        $user->syncRoles([$role]);
+        $this->command->info('Usuarios de exemplo criados ou atualizados!');
     }
 
     private function role(string $name): Role

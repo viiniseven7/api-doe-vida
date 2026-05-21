@@ -1,14 +1,15 @@
 <?php
 
 use App\Http\Controllers\AgendamentoController;
+use App\Http\Controllers\AlertaMedicoController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DoacaoController;
 use App\Http\Controllers\EstoqueController;
 use App\Http\Controllers\EstatisticaController;
 use App\Http\Controllers\HemocentroController;
-use App\Http\Controllers\RelatorioController;
 use App\Http\Controllers\TriagemController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserTipoSangueHistoricoController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -19,8 +20,11 @@ Route::prefix('auth')->group(function () {
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 });
 
+Route::get('/users', [UserController::class, 'index']);
+Route::get('/users/{id}', [UserController::class, 'show']);
 Route::get('/hemocentros', [HemocentroController::class, 'index']);
 Route::get('/hemocentros/{hemocentro}', [HemocentroController::class, 'show']);
+Route::get('/triagens/perguntas', [TriagemController::class, 'perguntas']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', function (Request $request) {
@@ -29,14 +33,15 @@ Route::middleware('auth:sanctum')->group(function () {
             'roles' => $request->user()->getRoleNames(),
         ]);
     });
+    Route::delete('/auth/minha-conta', [AuthController::class, 'excluirConta']);
+    Route::get('/auth/meus-dados', [AuthController::class, 'meusDados']);
+    Route::post('/auth/elegibilidade', [AuthController::class, 'salvarElegibilidade']);
+    Route::get('/auth/elegibilidade/atual', [AuthController::class, 'getElegibilidade']);
 
-    Route::get('/users', [UserController::class, 'index']);
-    Route::get('/users/{id}', [UserController::class, 'show']);
     Route::put('/users/{id}', [UserController::class, 'update']);
     Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
     Route::prefix('auth')->group(function () {
-        Route::get('/users', [UserController::class, 'index']);
         Route::post('/users', [UserController::class, 'store']);
     });
 
@@ -54,7 +59,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/agendamentos', [AgendamentoController::class, 'store']);
         Route::post('/agendamentos/{id}/confirmar', [AgendamentoController::class, 'confirmar']);
         Route::post('/agendamentos/{id}/cancelar', [AgendamentoController::class, 'cancelar']);
-        Route::post('/agendamentos/{id}/reabrir', [AgendamentoController::class, 'reabrir']);
         Route::delete('/agendamentos/{id}', [AgendamentoController::class, 'destroy']);
     });
 
@@ -67,6 +71,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/triagens/{id}', [TriagemController::class, 'destroy']);
     });
 
+    Route::get('/alertas-medicos', [AlertaMedicoController::class, 'index']);
+    Route::get('/alertas-medicos/{id}', [AlertaMedicoController::class, 'show']);
+
+    Route::prefix('auth')->group(function () {
+        Route::post('/alertas-medicos', [AlertaMedicoController::class, 'store']);
+        Route::put('/alertas-medicos/{id}', [AlertaMedicoController::class, 'update']);
+        Route::delete('/alertas-medicos/{id}', [AlertaMedicoController::class, 'destroy']);
+    });
+
+    Route::prefix('auth')->group(function () {
+        Route::get('/doadores/{userId}/tipo-sangue-historico', [UserTipoSangueHistoricoController::class, 'index']);
+        Route::post('/doadores/{userId}/tipo-sangue-historico', [UserTipoSangueHistoricoController::class, 'store']);
+    });
+
     Route::get('/doacoes', [DoacaoController::class, 'index']);
     Route::get('/doacoes/{id}', [DoacaoController::class, 'show']);
 
@@ -77,18 +95,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/estatisticas/diretor', [EstatisticaController::class, 'diretor']);
     Route::get('/estatisticas/admin', [EstatisticaController::class, 'admin']);
 
-    // Novos endpoints de Relatórios e Dashboards
-    Route::prefix('reports')->group(function () {
-        Route::get('/donations-summary', [RelatorioController::class, 'donationsSummary']);
-        Route::get('/blood-stock', [RelatorioController::class, 'bloodStock']);
-        Route::get('/performance-monthly', [RelatorioController::class, 'performanceMonthly']);
-    });
-
-    Route::prefix('relatorios')->group(function () {
-        Route::get('/doacoes', [RelatorioController::class, 'pdfDoacoes']);
-        Route::get('/estoque', [RelatorioController::class, 'pdfEstoque']);
-        Route::get('/doadores', [RelatorioController::class, 'pdfDoadores']);
-    });
+    Route::get('/certificados', [\App\Http\Controllers\CertificadoController::class, 'index']);
+    Route::get('/certificados/{id}/pdf', [\App\Http\Controllers\CertificadoController::class, 'download']);
 
     Route::prefix('auth')->group(function () {
         Route::post('/doacoes', [DoacaoController::class, 'store']);

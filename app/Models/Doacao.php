@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Doacao extends Model
 {
+    const CREATED_AT = null;
+    const UPDATED_AT = 'atualizado_em';
+
     use HasFactory;
 
     protected $table = 'doacao';
