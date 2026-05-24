@@ -37,6 +37,11 @@ class AuthController extends Controller
             'responsavel_cpf'  => 'nullable|string|size:11',
             'responsavel_data_nasc' => 'nullable|date_format:d/m/Y',
             'responsavel_telefone' => 'nullable|string|max:20',
+            'lgpd_aceite' => 'required|accepted',
+            'respostas_pre_triagem' => 'nullable|array',
+            'respostas_pre_triagem.*.pergunta_id' => 'required_with:respostas_pre_triagem|exists:triagem_perguntas,id',
+            'respostas_pre_triagem.*.opcao_id' => 'required_with:respostas_pre_triagem|exists:triagem_opcoes,id',
+            'respostas_pre_triagem.*.resultado_geral' => 'nullable|in:apto,inapto,consulte_medico',
         ]);
 
         $validated['telefone'] = preg_replace('/\D/', '', $validated['telefone']);
@@ -133,6 +138,9 @@ class AuthController extends Controller
                 'role_id'   => $role->id,
                 'hemocentro_id' => null,
                 'status'    => true,
+                'lgpd_aceite' => true,
+                'lgpd_aceite_em' => now(),
+                'lgpd_ip' => $request->ip(),
 
                 'responsavel_nome' => $validated['responsavel_nome'] ?? null,
                 'responsavel_cpf'  => $validated['responsavel_cpf'] ?? null,
@@ -144,11 +152,33 @@ class AuthController extends Controller
 
             $user->assignRole($role);
 
+            // Salvar respostas da pré-triagem se enviadas
+            if (!empty($validated['respostas_pre_triagem'])) {
+                $resultadoGeral = $validated['respostas_pre_triagem'][0]['resultado_geral'] ?? null;
+
+                if ($resultadoGeral === 'apto') {
+                    $user->update([
+                        'apto_pelo_autoexame' => true,
+                        'autoexame_validade'  => now()->addDays(7),
+                    ]);
+                }
+
+                foreach ($validated['respostas_pre_triagem'] as $resposta) {
+                    \App\Models\PreTriagemResposta::create([
+                        'user_id' => $user->id,
+                        'pergunta_id' => $resposta['pergunta_id'],
+                        'opcao_id' => $resposta['opcao_id'],
+                        'resultado_geral' => $resultadoGeral,
+                    ]);
+                }
+            }
+
             return response()->json([
                 'message' => 'Doador registrado com sucesso!',
                 'user'    => $user->fresh(),
                 'role'    => $role->name,
                 'roles'   => $user->getRoleNames()->toArray(),
+                'lgpd_aceite_em' => $user->lgpd_aceite_em,
             ], 201);
 
         } catch (\Exception $e) {
@@ -365,6 +395,162 @@ class AuthController extends Controller
             'roles'   => $user->getRoleNames()->toArray(),
             'token'   => $token,
             'token_type' => 'Bearer',
+        ]);
+    }
+
+    /**
+     * POST /api/auth/elegibilidade
+     * Salva o resultado do autoexame de elegibilidade.
+     */
+    public function salvarElegibilidade(Request $request)
+    {
+        $request->validate([
+            'apto' => 'required|boolean',
+        ]);
+
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        $user->update([
+            'apto_pelo_autoexame' => $request->apto,
+            // Validade de 24 horas para o teste
+            'autoexame_validade'  => $request->apto ? now()->addDay() : null,
+        ]);
+
+        return response()->json([
+            'status' => 'sucesso',
+            'message' => 'Resultado da elegibilidade salvo com sucesso.',
+            'apto' => $user->apto_pelo_autoexame,
+            'validade' => $user->autoexame_validade
+        ]);
+    }
+
+    /**
+     * GET /api/auth/elegibilidade/atual
+     * Retorna o status atual de elegibilidade do usuário.
+     */
+    public function getElegibilidade(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        $valido = $user->autoexame_validade && $user->autoexame_validade->isFuture();
+
+        return response()->json([
+            'apto' => (bool) ($user->apto_pelo_autoexame && $valido),
+            'validade' => $user->autoexame_validade,
+            'is_valido' => $valido
+        ]);
+    }
+
+    /**
+     * DELETE /api/auth/minha-conta
+     * LGPD Art. 18 — Direito de exclusão.
+     * Anonimiza os dados pessoais do doador sem apagar o registro,
+     * preservando a integridade das doações históricas no banco.
+     */
+    public function excluirConta(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Não autenticado.'], 401);
+        }
+
+        // Anonimizar dados pessoais — preserva o registro para integridade histórica
+        $user->update([
+            'name' => 'Usuário Removido',
+            'email' => 'removido_' . $user->id . '@doe-vida.removido',
+            'cpf' => str_pad((string) $user->id, 11, '0', STR_PAD_LEFT),
+            'telefone' => null,
+            'cep' => null,
+            'rua' => null,
+            'bairro' => null,
+            'cidade' => null,
+            'complemento' => null,
+            'numero' => null,
+            'uf' => null,
+            'data_nasc' => null,
+            'tipo_sang' => null,
+            'responsavel_nome' => null,
+            'responsavel_cpf' => null,
+            'responsavel_data_nasc' => null,
+            'responsavel_telefone' => null,
+            'status' => false,
+        ]);
+
+        // Revogar todos os tokens de acesso
+        $user->tokens()->delete();
+
+        // Log de auditoria LGPD
+        Log::info('LGPD — CONTA EXCLUÍDA POR SOLICITAÇÃO DO TITULAR', [
+            'user_id' => $user->id,
+            'timestamp' => now(),
+            'ip' => $request->ip(),
+        ]);
+
+        // Soft delete
+        $user->delete();
+
+        return response()->json([
+            'message' => 'Sua conta foi removida com sucesso. Seus dados pessoais foram anonimizados conforme a LGPD.',
+        ]);
+    }
+
+    /**
+     * GET /api/auth/meus-dados
+     * LGPD Art. 18 — Direito de portabilidade.
+     * Retorna todos os dados que o sistema possui sobre o doador autenticado.
+     */
+    public function meusDados(Request $request)
+    {
+        $user = $request->user()->load([
+            'preTriagemRespostas.pergunta',
+            'preTriagemRespostas.opcao',
+            'triagens.aptidao',
+            'alertasMedicos',
+            'tipoSangueHistorico',
+        ]);
+
+        return response()->json([
+            'dados_pessoais' => [
+                'nome' => $user->name,
+                'email' => $user->email,
+                'cpf' => $user->cpf,
+                'telefone' => $user->telefone,
+                'tipo_sang' => $user->tipo_sang,
+                'sexo' => $user->sexo,
+                'data_nasc' => $user->data_nasc,
+                'endereco' => [
+                    'cep' => $user->cep,
+                    'rua' => $user->rua,
+                    'numero' => $user->numero,
+                    'bairro' => $user->bairro,
+                    'cidade' => $user->cidade,
+                    'uf' => $user->uf,
+                    'complemento' => $user->complemento,
+                ],
+                'lgpd_aceite_em' => $user->lgpd_aceite_em,
+                'cadastrado_em' => $user->criado_em,
+            ],
+            'pre_triagem' => $user->preTriagemRespostas->map(fn($r) => [
+                'pergunta' => $r->pergunta->pergunta ?? null,
+                'resposta' => $r->opcao->texto_opcao ?? null,
+                'resultado_geral' => $r->resultado_geral,
+                'respondido_em' => $r->respondido_em,
+            ]),
+            'historico_tipo_sangue' => $user->tipoSangueHistorico->map(fn($h) => [
+                'de' => $h->tipo_sangue_anterior,
+                'para' => $h->tipo_sangue_novo,
+                'motivo' => $h->categoria_motivo,
+                'alterado_em' => $h->alterado_em,
+            ]),
+            'alertas_medicos' => $user->alertasMedicos->map(fn($a) => [
+                'mensagem' => $a->notificacao_doador,
+                'status' => $a->status,
+                'criado_em' => $a->criado_em,
+            ]),
+            'exportado_em' => now(),
         ]);
     }
 }

@@ -14,6 +14,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function ($middleware) {
+        $middleware->append(\App\Http\Middleware\RequestActivityLogger::class);
+
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);

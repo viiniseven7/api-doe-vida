@@ -46,6 +46,21 @@ class Triagem extends Model
         return $this->belongsTo(Hemocentro::class);
     }
 
+    public function sinaisVitais()
+    {
+        return $this->hasOne(TriagemSinaisVitais::class, 'triagem_id');
+    }
+
+    public function aptidao()
+    {
+        return $this->hasOne(TriagemAptidao::class, 'triagem_id');
+    }
+
+    public function respostas()
+    {
+        return $this->hasMany(TriagemResposta::class, 'triagem_id');
+    }
+
     public function scopeAtivas($query) {
 
             return $query->where('status_triagem', '!=', 'E');

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -12,10 +13,11 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
-    use HasFactory, HasApiTokens, Notifiable, HasRoles;
+    use HasFactory, HasApiTokens, Notifiable, HasRoles, SoftDeletes;
 
     const CREATED_AT = 'criado_em';
     const UPDATED_AT = 'atualizado_em';
+    const DELETED_AT = 'deletado_em';
 
     protected $fillable = [
         'name',
@@ -31,6 +33,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'numero',
         'bairro',
         'cidade',
+        'complemento',
         'uf',
         'responsavel_nome',
         'responsavel_cpf',
@@ -41,6 +44,11 @@ class User extends Authenticatable implements MustVerifyEmail
         'criado_por',
         'tempo_restricao',
         'role_id',
+        'lgpd_aceite',
+        'lgpd_aceite_em',
+        'lgpd_ip',
+        'apto_pelo_autoexame',
+        'autoexame_validade',
     ];
 
     protected $hidden = [
@@ -57,11 +65,30 @@ class User extends Authenticatable implements MustVerifyEmail
             'password'        => 'hashed',
             'data_nasc'       => 'date',
             'tempo_restricao' => 'date',
+            'lgpd_aceite'     => 'boolean',
+            'lgpd_aceite_em'  => 'datetime',
+            'apto_pelo_autoexame' => 'boolean',
+            'autoexame_validade'  => 'datetime',
         ];
     }
 
     public function triagens()
     {
         return $this->hasMany(Triagem::class, 'user_id');
+    }
+
+    public function preTriagemRespostas()
+    {
+        return $this->hasMany(PreTriagemResposta::class, 'user_id');
+    }
+
+    public function alertasMedicos()
+    {
+        return $this->hasMany(AlertaMedico::class, 'user_id');
+    }
+
+    public function tipoSangueHistorico()
+    {
+        return $this->hasMany(UserTipoSangueHistorico::class, 'user_id');
     }
 }

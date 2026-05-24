@@ -13,21 +13,30 @@ Os caminhos abaixo são relativos ao prefixo padrão `/api` do Laravel.
 
 ### POST /api/auth/register
 - **Controller**: `AuthController@register`
-- **Body JSON esperado**: `name`, `email`, `password`, `cpf`, `sexo`, `data_nasc`, `cep`, `rua`, `numero`, `cidade`, etc.
-- **Perfil**: O sistema define automaticamente `role_id = 1` (Doador).
-
-### POST /api/auth/login
-- **Controller**: `AuthController@login`
-- **Body JSON esperado**: `email`, `password`.
-- **Retorna**: Token de acesso Sanctum.
+- **Body JSON esperado**: `name`, `email`, `password`, `cpf`, ..., `lgpd_aceite` (obrigatório), `respostas_pre_triagem` (opcional).
+- **Ação**: Cria o usuário, registra o aceite da LGPD e as respostas iniciais de elegibilidade.
 
 ### GET /api/auth/me
 - **Middleware**: `auth:sanctum`
-- **Retorna usuário autenticado e seus papéis (roles)**.
+- **Retorna**: Usuário autenticado e seus papéis.
+
+### DELETE /api/auth/minha-conta
+- **Ação**: Anonimiza dados sensíveis e aplica soft delete (LGPD).
+
+### GET /api/auth/meus-dados
+- **Ação**: Retorna todos os dados vinculados ao usuário (Portabilidade LGPD).
 
 ---
 
 ## Usuários (Gestão Administrativa)
+
+### GET /api/users
+- **Middleware**: `auth:sanctum`
+- **Filtro de Segurança/Privacidade**:
+  - **Doador**: Vê apenas seus próprios dados.
+  - **Funcionário/Diretor**: Vê apenas doadores que já realizaram triagem ou doação em seu hemocentro vinculado.
+  - **Admin**: Vê todos os usuários do sistema.
+- **Ordenação**: Alfabética por nome.
 
 ### POST /api/auth/users
 - **Middleware**: `auth:sanctum`
@@ -69,6 +78,11 @@ Os caminhos abaixo são relativos ao prefixo padrão `/api` do Laravel.
 - **Ação**: Muda o status para `CAN`.
 - **Público**: Doador ou Funcionário.
 
+### POST /api/auth/agendamentos/{id}/reabrir
+- **Ação**: Muda o status para `AGE` (Reabre um agendamento cancelado).
+- **Regra**: Só permite reabrir se a data da doação ainda não tiver passado.
+- **Público**: Doador ou Funcionário.
+
 ---
 
 ## Triagens
@@ -76,10 +90,18 @@ Os caminhos abaixo são relativos ao prefixo padrão `/api` do Laravel.
 ### GET /api/triagens
 - **Filtro**: Doador vê as suas; Funcionário vê as do seu hemocentro.
 
+### GET /api/triagens/perguntas
+- **Ação**: Retorna perguntas e opções dinâmicas.
+- **Parâmetros**: `?bloco=N` (0=Pré-triagem, 1=Geral, 3=Recente, 4=Comportamental).
+
 ### POST /api/auth/triagens
-- **Ação**: Efetiva a triagem de um doador.
-- **Body**: `user_id`, `hemocentro_id`, `data_triagem`, `apto` (bool), `motivo_inaptidao`, `observacoes`.
-- **Status inicial**: `C` (Concluída).
+- **Ação**: Efetiva a triagem clínica completa.
+- **Body JSON esperado**:
+  - `agendamento_id`, `user_id`, `data_triagem`.
+  - `sinais_vitais`: Objeto com `peso`, `pressao_sistolica`, `pressao_diastolica`, `temperatura`, `frequencia_cardiaca`, `hemoglobina`, `hematocrito`.
+  - `respostas`: Array de `{pergunta_id, opcao_id}`.
+  - `aptidao`: Objeto com `resultado` (apto/inapto_temporario/inapto_definitivo), `categoria_inaptidao`, `valido_ate`, `observacoes_internas`.
+- **Regra**: Gera notificação automática para o doador baseada no resultado.
 
 ### DELETE /api/auth/triagens/{id}
 - **Ação**: Muda o status para `E` (Excluída).
@@ -94,13 +116,28 @@ Os caminhos abaixo são relativos ao prefixo padrão `/api` do Laravel.
 ### POST /api/auth/doacoes
 - **Controller**: `DoacaoController@store`
 - **Body JSON esperado**:
-  - `user_id`: ID do doador.
-  - `hemocentro_id`: ID do hemocentro.
-  - `data_hora_doacao`: Data e hora da coleta.
-  - `tipo_sangue`: `A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+`, `O-`.
-  - `quantidade`: Volume em ml.
-  - `data_validade_sangue`: Data de validade da bolsa.
+  - `agendamento_id`: **Obrigatório**. ID do agendamento vinculado.
+  - `triagem_id`: **Obrigatório**. ID da triagem aprovada.
+  - `user_id`: **Obrigatório**. ID do doador.
+  - `hemocentro_id`: **Obrigatório**. ID do local da coleta.
+  - `data_hora_doacao`: **Obrigatório**. Data e hora (`YYYY-MM-DD HH:mm:ss`).
+  - `tipo_sangue`: **Obrigatório**. `A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+`, `O-`.
+  - `quantidade`: **Obrigatório**. Volume em ml.
+  - `data_validade_sangue`: (Opcional) Data de validade da bolsa.
+- **Exemplo**:
+```json
+{
+    "agendamento_id": 1,
+    "triagem_id": 10,
+    "user_id": 5,
+    "hemocentro_id": 2,
+    "data_hora_doacao": "2026-05-18 15:00:00",
+    "tipo_sangue": "O+",
+    "quantidade": 450
+}
+```
 - **Regra**: O `funcionario_id` é preenchido automaticamente com o usuário logado.
+- **Regra de Negócio**: A triagem vinculada deve ter `apto = true`.
 
 ---
 
@@ -108,7 +145,9 @@ Os caminhos abaixo são relativos ao prefixo padrão `/api` do Laravel.
 
 ### GET /api/estoque
 - **Ação**: Lista o estoque de bolsas de sangue.
-- **Filtros query string**: `hemocentro_id`, `tipo_sangue`.
+- **Parâmetros (Query String)**:
+  - `hemocentro_id`: (Opcional para Admin) ID do hemocentro.
+  - `tipo_sangue`: (Opcional) `A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+`, `O-`.
 - **Regra**: Funcionário vê apenas o estoque do seu hemocentro.
 
 ### GET /api/estoque/{id}
@@ -128,11 +167,81 @@ Os caminhos abaixo são relativos ao prefixo padrão `/api` do Laravel.
 
 ---
 
+## Alertas Médicos
+
+### GET /api/alertas-medicos
+- **Doador**: Vê convocações direcionadas a ele.
+- **Funcionário**: Vê alertas criados pelo seu hemocentro.
+
+---
+
+## Certificados
+
+### GET /api/certificados
+- **Ação**: Lista doações concluídas que podem gerar certificado.
+
+### GET /api/certificados/{id}/pdf
+- **Ação**: Download do PDF oficial do certificado.
+
+---
+
+## Histórico de Tipo Sanguíneo
+
+### POST /api/auth/doadores/{id}/tipo-sangue-historico
+- **Ação**: Altera o tipo de sangue e registra o motivo para auditoria.
+
+---
+
+## Relatórios & Estatísticas (Dashboards)
+Endpoints otimizados para dashboards gerenciais com dados agregados. Exigem autenticação.
+
+### GET /api/reports/donations-summary
+- **Ação**: Retorna o volume total de agendamentos agrupado por status.
+- **Parâmetros (Query String)**:
+  - `dias`: (Opcional, padrão 30) Número de dias retroativos para o resumo.
+- **Retorno**: Lista de objetos com `label` e `total`.
+
+### GET /api/reports/blood-stock
+- **Ação**: Retorna o saldo atual de bolsas de sangue por tipo.
+- **Parâmetros (Query String)**:
+  - `hemocentro_id`: (Admin apenas) Filtra por unidade específica.
+- **Retorno**: Lista de objetos com `tipo` e `quantidade`.
+
+### GET /api/reports/performance-monthly
+- **Ação**: Retorna a quantidade de doações realizadas por mês nos últimos 12 meses.
+- **Parâmetros (Query String)**:
+  - `hemocentro_id`: (Admin apenas) Filtra por unidade específica.
+- **Finalidade**: Construção de gráficos de linha/tendência.
+
+---
+
+## Relatórios para Impressão (PDF)
+Endpoints que geram arquivos PDF para download.
+
+### GET /api/relatorios/doacoes
+- **Ação**: Gera PDF com a listagem detalhada de doações.
+- **Parâmetros (Query String)**:
+  - `periodo`: (Opcional, padrão 30) Número de dias retroativos.
+  - `hemocentro_id`: (Admin apenas) Filtra por unidade específica.
+
+### GET /api/relatorios/estoque
+- **Ação**: Gera PDF com a situação atual do estoque (incluindo alertas de nível crítico).
+- **Parâmetros (Query String)**:
+  - `hemocentro_id`: (Admin apenas) Filtra por unidade específica.
+
+### GET /api/relatorios/doadores
+- **Ação**: Gera PDF com a listagem de doadores vinculados à unidade.
+- **Parâmetros (Query String)**:
+  - `hemocentro_id`: (Admin apenas) Filtra por unidade específica.
+
+---
+
 ## Status e Enums
 
 ### Status Agendamento
 - `AGE`: Agendado (Pendente)
-- `CON`: Confirmado
+- `CON`: Confirmado (Presença registrada/Em triagem)
+- `FIN`: Finalizado (Doação concluída com sucesso)
 - `CAN`: Cancelado
 - `EXC`: Excluído (por reagendamento)
 

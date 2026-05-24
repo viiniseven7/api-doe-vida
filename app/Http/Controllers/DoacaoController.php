@@ -6,6 +6,7 @@ use App\Models\Doacao;
 use App\Models\Estoque;
 use App\Models\User;
 use App\Models\Triagem;
+use App\Models\Agendamento;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -100,6 +101,11 @@ class DoacaoController extends Controller
         $estoque->quantidade_minima = $estoque->quantidade_minima ?? 5000;
         $estoque->atualizado_em = now();
         $estoque->save();
+
+        // Atualiza o status do agendamento para FIN (Finalizado)
+        Agendamento::where('id', $request->agendamento_id)->update([
+            'status_agendamento' => 'FIN'
+        ]);
 
         // Atualiza a restrição biológica do doador
         $doador = User::find($request->user_id);

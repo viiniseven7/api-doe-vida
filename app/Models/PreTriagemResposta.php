@@ -4,19 +4,27 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class TriagemResposta extends Model
+class PreTriagemResposta extends Model
 {
-    protected $table = 'triagem_respostas';
+    protected $table = 'pre_triagem_respostas';
+
+    const CREATED_AT = 'respondido_em';
+    const UPDATED_AT = null;
 
     protected $fillable = [
-        'triagem_id',
+        'user_id',
         'pergunta_id',
         'opcao_id',
+        'resultado_geral',
     ];
 
-    public function triagem()
+    protected $casts = [
+        'respondido_em' => 'datetime',
+    ];
+
+    public function doador()
     {
-        return $this->belongsTo(Triagem::class, 'triagem_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function pergunta()
