@@ -3,104 +3,170 @@
 use App\Http\Controllers\AgendamentoController;
 use App\Http\Controllers\AlertaMedicoController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CampanhaController;
 use App\Http\Controllers\DoacaoController;
 use App\Http\Controllers\EstoqueController;
 use App\Http\Controllers\EstatisticaController;
 use App\Http\Controllers\HemocentroController;
+use App\Http\Controllers\RelatorioController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\TriagemController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserTipoSangueHistoricoController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+// ═══════════════════════════════════════════════════════
+// ROTAS PÚBLICAS — sem autenticação
+// ═══════════════════════════════════════════════════════
+
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register',        [AuthController::class, 'register']);
+    Route::post('/login',           [AuthController::class, 'login']);
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+    Route::post('/reset-password',  [AuthController::class, 'resetPassword']);
 });
 
-Route::get('/users', [UserController::class, 'index']);
-Route::get('/users/{id}', [UserController::class, 'show']);
-Route::get('/hemocentros', [HemocentroController::class, 'index']);
+Route::get('/users/{id}',               [UserController::class,    'show']);
+Route::get('/hemocentros',              [HemocentroController::class, 'index']);
 Route::get('/hemocentros/{hemocentro}', [HemocentroController::class, 'show']);
-Route::get('/triagens/perguntas', [TriagemController::class, 'perguntas']);
+Route::get('/triagens/perguntas',       [TriagemController::class, 'perguntas']);
+
+// ═══════════════════════════════════════════════════════
+// ROTAS AUTENTICADAS — qualquer role logado
+// ═══════════════════════════════════════════════════════
 
 Route::middleware('auth:sanctum')->group(function () {
+
+    // Auth utilitários
     Route::get('/auth/me', function (Request $request) {
         return response()->json([
-            'user' => $request->user(),
+            'user'  => $request->user(),
             'roles' => $request->user()->getRoleNames(),
         ]);
     });
-    Route::delete('/auth/minha-conta', [AuthController::class, 'excluirConta']);
-    Route::get('/auth/meus-dados', [AuthController::class, 'meusDados']);
-    Route::post('/auth/elegibilidade', [AuthController::class, 'salvarElegibilidade']);
+    Route::delete('/auth/minha-conta',      [AuthController::class, 'excluirConta']);
+    Route::get('/auth/meus-dados',          [AuthController::class, 'meusDados']);
+    Route::post('/auth/elegibilidade',      [AuthController::class, 'salvarElegibilidade']);
     Route::get('/auth/elegibilidade/atual', [AuthController::class, 'getElegibilidade']);
 
+    // Usuários
+    Route::get('/users',      [UserController::class, 'index']);
     Route::put('/users/{id}', [UserController::class, 'update']);
-    Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
-    Route::prefix('auth')->group(function () {
-        Route::post('/users', [UserController::class, 'store']);
-    });
-
-    Route::prefix('auth')->group(function () {
-        Route::post('/hemocentros', [HemocentroController::class, 'store']);
-        Route::put('/hemocentros/{hemocentro}', [HemocentroController::class, 'update']);
-        Route::delete('/hemocentros/{hemocentro}', [HemocentroController::class, 'destroy']);
-    });
-
-    Route::get('/agendamentos', [AgendamentoController::class, 'index']);
+    // Agendamentos — leitura (controller filtra por role)
+    Route::get('/agendamentos',           [AgendamentoController::class, 'index']);
     Route::get('/agendamentos/historico', [AgendamentoController::class, 'historico']);
-    Route::get('/agendamentos/{id}', [AgendamentoController::class, 'show']);
+    Route::get('/agendamentos/{id}',      [AgendamentoController::class, 'show']);
 
+    // Agendamentos — doador cria e cancela o próprio
     Route::prefix('auth')->group(function () {
-        Route::post('/agendamentos', [AgendamentoController::class, 'store']);
-        Route::post('/agendamentos/{id}/confirmar', [AgendamentoController::class, 'confirmar']);
+        Route::post('/agendamentos',               [AgendamentoController::class, 'store']);
         Route::post('/agendamentos/{id}/cancelar', [AgendamentoController::class, 'cancelar']);
-        Route::delete('/agendamentos/{id}', [AgendamentoController::class, 'destroy']);
     });
 
-    Route::get('/triagens', [TriagemController::class, 'index']);
+    // Triagens — leitura (controller filtra por role)
+    Route::get('/triagens',      [TriagemController::class, 'index']);
     Route::get('/triagens/{id}', [TriagemController::class, 'show']);
 
-    Route::prefix('auth')->group(function () {
-        Route::post('/triagens', [TriagemController::class, 'store']);
-        Route::put('/triagens/{id}', [TriagemController::class, 'update']);
-        Route::delete('/triagens/{id}', [TriagemController::class, 'destroy']);
-    });
+    // Doações — leitura (controller filtra por role)
+    Route::get('/doacoes',      [DoacaoController::class, 'index']);
+    Route::get('/doacoes/{id}', [DoacaoController::class, 'show']);
 
-    Route::get('/alertas-medicos', [AlertaMedicoController::class, 'index']);
+    // Estoque — leitura
+    Route::get('/estoque',      [EstoqueController::class, 'index']);
+    Route::get('/estoque/{id}', [EstoqueController::class, 'show']);
+
+    // Alertas médicos — leitura (controller filtra por role)
+    Route::get('/alertas-medicos',      [AlertaMedicoController::class, 'index']);
     Route::get('/alertas-medicos/{id}', [AlertaMedicoController::class, 'show']);
 
-    Route::prefix('auth')->group(function () {
-        Route::post('/alertas-medicos', [AlertaMedicoController::class, 'store']);
-        Route::put('/alertas-medicos/{id}', [AlertaMedicoController::class, 'update']);
-        Route::delete('/alertas-medicos/{id}', [AlertaMedicoController::class, 'destroy']);
+    // Estatísticas — leitura por role
+    Route::get('/estatisticas/funcionario', [EstatisticaController::class, 'funcionario']);
+    Route::get('/estatisticas/diretor',     [EstatisticaController::class, 'diretor']);
+    Route::get('/estatisticas/admin',       [EstatisticaController::class, 'admin']);
+
+    // Campanhas — leitura
+    Route::get('/campanhas',      [CampanhaController::class, 'index']);
+    Route::get('/campanhas/{id}', [CampanhaController::class, 'show']);
+
+    // Certificados — doador vê os seus
+    Route::get('/certificados',          [\App\Http\Controllers\CertificadoController::class, 'index']);
+    Route::get('/certificados/{id}/pdf', [\App\Http\Controllers\CertificadoController::class, 'download']);
+
+    // Relatórios PDF
+    Route::prefix('relatorios')->group(function () {
+        Route::get('/doacoes',  [RelatorioController::class, 'pdfDoacoes']);
+        Route::get('/estoque',  [RelatorioController::class, 'pdfEstoque']);
+        Route::get('/doadores', [RelatorioController::class, 'pdfDoadores']);
     });
 
-    Route::prefix('auth')->group(function () {
-        Route::get('/doadores/{userId}/tipo-sangue-historico', [UserTipoSangueHistoricoController::class, 'index']);
+    // Roles — leitura (qualquer autenticado)
+    Route::get('/roles',       [RoleController::class, 'index']);
+    Route::get('/permissions', [RoleController::class, 'permissions']);
+
+    // ═══════════════════════════════════════════════════
+    // ROTAS DE ESCRITA — funcionário, diretor e admin
+    // ═══════════════════════════════════════════════════
+
+    Route::middleware('role:funcionario,diretor,admin')->prefix('auth')->group(function () {
+        // Agendamentos — confirmar, reabrir, excluir
+        Route::post('/agendamentos/{id}/confirmar', [AgendamentoController::class, 'confirmar']);
+        Route::post('/agendamentos/{id}/reabrir',   [AgendamentoController::class, 'reabrir']);
+        Route::delete('/agendamentos/{id}',         [AgendamentoController::class, 'destroy']);
+
+        // Triagem
+        Route::post('/triagens',        [TriagemController::class, 'store']);
+        Route::put('/triagens/{id}',    [TriagemController::class, 'update']);
+        Route::delete('/triagens/{id}', [TriagemController::class, 'destroy']);
+
+        // Doação
+        Route::post('/doacoes', [DoacaoController::class, 'store']);
+
+        // Estoque — escrita
+        Route::post('/estoque',     [EstoqueController::class, 'store']);
+        Route::put('/estoque/{id}', [EstoqueController::class, 'update']);
+
+        // Alertas médicos — escrita
+        Route::post('/alertas-medicos',        [AlertaMedicoController::class, 'store']);
+        Route::put('/alertas-medicos/{id}',    [AlertaMedicoController::class, 'update']);
+        Route::delete('/alertas-medicos/{id}', [AlertaMedicoController::class, 'destroy']);
+
+        // Histórico tipo sanguíneo
+        Route::get('/doadores/{userId}/tipo-sangue-historico',  [UserTipoSangueHistoricoController::class, 'index']);
         Route::post('/doadores/{userId}/tipo-sangue-historico', [UserTipoSangueHistoricoController::class, 'store']);
     });
 
-    Route::get('/doacoes', [DoacaoController::class, 'index']);
-    Route::get('/doacoes/{id}', [DoacaoController::class, 'show']);
+    // ═══════════════════════════════════════════════════
+    // ROTAS DE GESTÃO — admin e diretor
+    // ═══════════════════════════════════════════════════
 
-    Route::get('/estoque', [EstoqueController::class, 'index']);
-    Route::get('/estoque/{id}', [EstoqueController::class, 'show']);
+    Route::middleware('role:admin,diretor')->group(function () {
+        Route::prefix('auth')->group(function () {
+            Route::post('/users', [UserController::class, 'store']);
+        });
+        Route::delete('/users/{id}', [UserController::class, 'destroy']);
+    });
 
-    Route::get('/estatisticas/funcionario', [EstatisticaController::class, 'funcionario']);
-    Route::get('/estatisticas/diretor', [EstatisticaController::class, 'diretor']);
-    Route::get('/estatisticas/admin', [EstatisticaController::class, 'admin']);
+    // ═══════════════════════════════════════════════════
+    // ROTAS EXCLUSIVAS DO ADMIN
+    // ═══════════════════════════════════════════════════
 
-    Route::get('/certificados', [\App\Http\Controllers\CertificadoController::class, 'index']);
-    Route::get('/certificados/{id}/pdf', [\App\Http\Controllers\CertificadoController::class, 'download']);
+    Route::middleware('role:admin')->prefix('auth')->group(function () {
+        // Hemocentros — escrita
+        Route::post('/hemocentros',                [HemocentroController::class, 'store']);
+        Route::put('/hemocentros/{hemocentro}',    [HemocentroController::class, 'update']);
+        Route::delete('/hemocentros/{hemocentro}', [HemocentroController::class, 'destroy']);
 
-    Route::prefix('auth')->group(function () {
-        Route::post('/doacoes', [DoacaoController::class, 'store']);
-        Route::post('/estoque', [EstoqueController::class, 'store']);
-        Route::put('/estoque/{id}', [EstoqueController::class, 'update']);
+        // Campanhas — escrita e disparo
+        Route::post('/campanhas',               [CampanhaController::class, 'store']);
+        Route::put('/campanhas/{id}',           [CampanhaController::class, 'update']);
+        Route::delete('/campanhas/{id}',        [CampanhaController::class, 'destroy']);
+        Route::post('/campanhas/{id}/disparar', [CampanhaController::class, 'disparar']);
+
+        // Roles — escrita
+        Route::post('/roles',          [RoleController::class, 'store']);
+        Route::put('/roles/{role}',    [RoleController::class, 'update']);
+        Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
     });
 });

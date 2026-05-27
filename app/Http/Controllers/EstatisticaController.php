@@ -50,13 +50,22 @@ class EstatisticaController extends Controller
 
     public function admin()
     {
+        $totalAgendamentos = Agendamento::whereIn('status_agendamento', ['AGE', 'CON'])->count();
+        $totalCompareceram = Agendamento::where('status_agendamento', 'CON')->count()
+            + Doacao::distinct('agendamento_id')->count('agendamento_id');
+
+        $taxaComparecimento = $totalAgendamentos > 0
+            ? round(($totalCompareceram / $totalAgendamentos) * 100)
+            : 0;
+
         return response()->json([
-            'total_hemocentros' => Hemocentro::count(),
-            'total_usuarios' => User::count(),
+            'total_hemocentros'   => Hemocentro::count(),
+            'total_usuarios'      => User::count(),
+            'taxa_comparecimento' => $taxaComparecimento,
             'doacoes_por_hemocentro' => $this->doacoesPorHemocentro(),
-            'estoque_global' => $this->estoqueGlobal(),
-            'doacoes_por_mes' => $this->doacoesPorMes(),
-            'doacoes_por_tipo' => $this->doacoesPorTipo(),
+            'estoque_global'      => $this->estoqueGlobal(),
+            'doacoes_por_mes'     => $this->doacoesPorMes(),
+            'doacoes_por_tipo'    => $this->doacoesPorTipo(),
         ]);
     }
 
