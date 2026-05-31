@@ -181,6 +181,70 @@
     </div>
 </div>
 
+{{-- KPIs adicionais --}}
+<div style="margin: 0 20px 16px;">
+    <table style="width:100%; border-collapse:separate; border-spacing:8px;">
+        <tr>
+            <td style="background:#F9FAFB; border:1px solid #E5E7EB; border-top:3px solid #2563EB; border-radius:6px; padding:10px 12px; width:50%;">
+                <div style="font-size:20px; font-weight:bold; color:#111827;">{{ number_format($doadores_com_doacoes, 0, ',', '.') }}</div>
+                <div style="font-size:8px; color:#6B7280; margin-top:3px; text-transform:uppercase; letter-spacing:0.5px;">Doadores com Doação Realizada</div>
+                <div style="font-size:8px; color:#9CA3AF; margin-top:2px;">Média: {{ $media_doacoes_por_doador }} doações/doador</div>
+            </td>
+            <td style="background:#F9FAFB; border:1px solid #E5E7EB; border-top:3px solid #B91C1C; border-radius:6px; padding:10px 12px; width:50%;">
+                <div style="font-size:20px; font-weight:bold; color:#111827;">{{ number_format($doadores_restricao, 0, ',', '.') }}</div>
+                <div style="font-size:8px; color:#6B7280; margin-top:3px; text-transform:uppercase; letter-spacing:0.5px;">Em Restrição Temporária</div>
+                <div style="font-size:8px; color:#9CA3AF; margin-top:2px;">Inaptos temporariamente para doação</div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+{{-- Top 10 Doadores --}}
+<div class="section">
+    <div class="section-title">Top 10 Doadores Mais Frequentes</div>
+    @if($top_doadores->count() > 0)
+    <table>
+        <thead>
+            <tr>
+                <th class="center" style="width:40px;">Rank</th>
+                <th>Nome</th>
+                <th class="center">Tipo</th>
+                <th class="right">Nº Doações</th>
+                <th class="right">Última Doação</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($top_doadores as $i => $d)
+            <tr>
+                <td class="center">
+                    @if($i === 0)
+                    <span style="color:#D97706; font-weight:bold;">&#9733; 1</span>
+                    @elseif($i === 1)
+                    <span style="color:#6B7280; font-weight:bold;">&#9733; 2</span>
+                    @elseif($i === 2)
+                    <span style="color:#92400E; font-weight:bold;">&#9733; 3</span>
+                    @else
+                    <span style="color:#9CA3AF;">{{ $i + 1 }}</span>
+                    @endif
+                </td>
+                <td>{{ $d['name'] }}</td>
+                <td class="center">
+                    @if($d['tipo_sang'] !== '—')
+                    <span class="badge badge-tipo">{{ $d['tipo_sang'] }}</span>
+                    @else —
+                    @endif
+                </td>
+                <td class="right"><strong>{{ $d['total_doacoes'] }}</strong></td>
+                <td class="right" style="color:#6B7280;">{{ $d['ultima_doacao'] }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+    @else
+    <div class="empty">Nenhuma doação registrada.</div>
+    @endif
+</div>
+
 {{-- Tabela de Doadores --}}
 <div class="section">
     <div class="section-title">Lista Completa de Doadores</div>

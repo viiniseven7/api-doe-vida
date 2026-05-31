@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Campanha;
+use App\Models\Doacao;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -144,7 +145,7 @@ class CampanhaController extends Controller
         foreach ($doadoresSegmentados as $doador) {
             try {
                 Mail::raw(
-                    "Olá, {$doador->name}!\n\n{$campanha->descricao}\n\nEquipe DoaVida",
+                    "OlÃ¡, {$doador->name}!\n\n{$campanha->descricao}\n\nEquipe DoaVida",
                     function ($message) use ($doador, $campanha) {
                         $message->to($doador->email)
                                 ->subject($campanha->titulo);
@@ -165,7 +166,7 @@ class CampanhaController extends Controller
         Log::info('CAMPANHA DISPARADA', [
             'campanha_id'     => $campanha->id,
             'titulo'          => $campanha->titulo,
-            'total_elegíveis' => $doadores->count(),
+            'total_elegÃ­veis' => $doadores->count(),
             'total_disparado' => $totalDisparado,
             'disparado_por'   => Auth::id(),
             'timestamp'       => now(),
@@ -185,22 +186,45 @@ class CampanhaController extends Controller
         $mlKey = config('services.ml.key');
 
         if (!$mlUrl) {
-            Log::info('ML não configurado — disparando para todos os elegíveis', [
+            Log::info('ML nÃ£o configurado â€” disparando para todos os elegÃ­veis', [
                 'campanha_id' => $campanha->id,
             ]);
             return $doadores;
         }
 
         try {
+            $doacaoStats = Doacao::query()
+                ->whereIn('user_id', $doadores->pluck('id'))
+                ->selectRaw('user_id, COUNT(*) as frequencia_doacoes, COALESCE(SUM(quantidade), 0) as volume_total_cc, MAX(data_hora_doacao) as ultima_doacao, MIN(data_hora_doacao) as primeira_doacao')
+                ->groupBy('user_id')
+                ->get()
+                ->keyBy('user_id');
+
             $payload = [
                 'campanha_id' => $campanha->id,
                 'tipo_sangue' => $campanha->tipo_sangue,
-                'doadores'    => $doadores->map(fn ($d) => [
-                    'id'              => $d->id,
-                    'tipo_sang'       => $d->tipo_sang,
-                    'tempo_restricao' => $d->tempo_restricao,
-                    'cadastrado_em'   => $d->criado_em,
-                ])->values()->all(),
+                'doadores'    => $doadores->map(function ($d) use ($doacaoStats) {
+                    $stats = $doacaoStats->get($d->id);
+                    $ultimaDoacao = $stats?->ultima_doacao ? \Carbon\Carbon::parse($stats->ultima_doacao) : null;
+                    $primeiraReferencia = $stats?->primeira_doacao ?: $d->criado_em;
+                    $primeiraDoacao = $primeiraReferencia ? \Carbon\Carbon::parse($primeiraReferencia) : now();
+                    $recenciaMeses = $ultimaDoacao ? $ultimaDoacao->diffInMonths(now()) : $primeiraDoacao->diffInMonths(now());
+                    $tempoMeses = max(1, $primeiraDoacao->diffInMonths(now()));
+                    $frequencia = (int) ($stats?->frequencia_doacoes ?? 0);
+                    $riscoInatividade = $recenciaMeses <= 6 ? 'Ativo' : ($recenciaMeses <= 12 ? 'Atencao' : ($recenciaMeses <= 24 ? 'Em_Risco' : 'Inativo'));
+
+                    return [
+                        'id'                          => $d->id,
+                        'tipo_sang'                   => $d->tipo_sang,
+                        'tempo_restricao'             => optional($d->tempo_restricao)->toDateString(),
+                        'cadastrado_em'               => optional($d->criado_em)->toDateTimeString(),
+                        'recencia_meses'              => $recenciaMeses,
+                        'frequencia_doacoes'          => $frequencia,
+                        'volume_total_cc'             => (float) ($stats?->volume_total_cc ?? 0),
+                        'tempo_desde_primeira_doacao' => $tempoMeses,
+                        'risco_inatividade'           => $riscoInatividade,
+                    ];
+                })->values()->all(),
             ];
 
             $response = Http::timeout(10)
@@ -220,13 +244,13 @@ class CampanhaController extends Controller
                 }
             }
 
-            Log::warning('ML retornou resposta inválida — usando fallback', [
+            Log::warning('ML retornou resposta invÃ¡lida â€” usando fallback', [
                 'campanha_id' => $campanha->id,
                 'status'      => $response->status(),
             ]);
 
         } catch (\Throwable $e) {
-            Log::warning('ML indisponível — usando fallback local', [
+            Log::warning('ML indisponÃ­vel â€” usando fallback local', [
                 'campanha_id' => $campanha->id,
                 'erro'        => $e->getMessage(),
             ]);
@@ -238,3 +262,4 @@ class CampanhaController extends Controller
         })->values();
     }
 }
+

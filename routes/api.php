@@ -40,9 +40,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Auth utilitários
     Route::get('/auth/me', function (Request $request) {
+        $user = $request->user();
         return response()->json([
-            'user'  => $request->user(),
-            'roles' => $request->user()->getRoleNames(),
+            'user'        => $user,
+            'roles'       => $user->getRoleNames(),
+            'permissions' => $user->getAllPermissions()->pluck('name')->values(),
         ]);
     });
     Route::delete('/auth/minha-conta',      [AuthController::class, 'excluirConta']);
@@ -95,7 +97,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/certificados/{id}/pdf', [\App\Http\Controllers\CertificadoController::class, 'download']);
 
     // Relatórios JSON (insights para dashboard/frontend)
-    Route::prefix('relatorios')->group(function () {
+    Route::middleware('role:funcionario,diretor,admin')->prefix('relatorios')->group(function () {
         Route::get('/resumo',              [RelatorioController::class, 'resumo']);
         Route::get('/doacoes/json',        [RelatorioController::class, 'donationsSummary']);
         Route::get('/estoque/json',        [RelatorioController::class, 'bloodStock']);
@@ -110,6 +112,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/doacoes',  [RelatorioController::class, 'pdfDoacoes']);
         Route::get('/estoque',  [RelatorioController::class, 'pdfEstoque']);
         Route::get('/doadores', [RelatorioController::class, 'pdfDoadores']);
+
+        // Novos relatórios PDF
+        Route::get('/agendamentos/pdf', [RelatorioController::class, 'pdfAgendamentos']);
+        Route::get('/triagens/pdf',     [RelatorioController::class, 'pdfTriagens']);
+        Route::get('/desempenho/pdf',   [RelatorioController::class, 'pdfDesempenho']);
     });
 
     // Roles — leitura (qualquer autenticado)

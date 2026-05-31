@@ -192,6 +192,94 @@
     </div>
 </div>
 
+{{-- Funil de Conversão --}}
+<div class="section">
+    <div class="section-title">Funil de Conversão</div>
+    <div class="chart-area">
+        @php
+            $pctTriagem = $total_agendamentos > 0 ? round($triagens_total / $total_agendamentos * 100, 1) : 0;
+            $pctDoacao  = $triagens_total > 0 ? round($doacoes->count() / $triagens_total * 100, 1) : 0;
+        @endphp
+        <table style="width:100%; border-collapse:collapse; text-align:center;">
+            <tr>
+                <td style="width:30%; background:#DBEAFE; border-radius:6px; padding:10px 6px;">
+                    <div style="font-size:18px; font-weight:bold; color:#1D4ED8;">{{ number_format($total_agendamentos, 0, ',', '.') }}</div>
+                    <div style="font-size:8px; color:#1D4ED8; text-transform:uppercase; margin-top:2px;">Agendamentos</div>
+                </td>
+                <td style="width:5%; font-size:16px; color:#9CA3AF; text-align:center;">&#x2192;</td>
+                <td style="width:30%; background:#FEF3C7; border-radius:6px; padding:10px 6px;">
+                    <div style="font-size:18px; font-weight:bold; color:#92400E;">{{ number_format($triagens_total, 0, ',', '.') }}</div>
+                    <div style="font-size:8px; color:#92400E; text-transform:uppercase; margin-top:2px;">Triagens</div>
+                    <div style="font-size:8px; color:#D97706; margin-top:2px;">{{ $pctTriagem }}% dos agendamentos</div>
+                </td>
+                <td style="width:5%; font-size:16px; color:#9CA3AF; text-align:center;">&#x2192;</td>
+                <td style="width:30%; background:#D1FAE5; border-radius:6px; padding:10px 6px;">
+                    <div style="font-size:18px; font-weight:bold; color:#065F46;">{{ number_format($doacoes->count(), 0, ',', '.') }}</div>
+                    <div style="font-size:8px; color:#065F46; text-transform:uppercase; margin-top:2px;">Doações</div>
+                    <div style="font-size:8px; color:#059669; margin-top:2px;">{{ $pctDoacao }}% das triagens</div>
+                </td>
+            </tr>
+        </table>
+        <div style="margin-top:8px; font-size:8px; color:#6B7280;">
+            Taxa de conversão geral (agend. → doação): <strong>{{ $taxa_conversao }}%</strong>
+        </div>
+    </div>
+</div>
+
+{{-- Taxa de Aptidão em Triagem --}}
+<div class="section">
+    <div class="section-title">Taxa de Aptidão em Triagem</div>
+    <div class="chart-area">
+        @php
+            $pctApto   = $triagens_total > 0 ? round($triagens_aptas / $triagens_total * 100, 1) : 0;
+            $pctInapto = 100 - $pctApto;
+        @endphp
+        <div style="margin-bottom:6px; font-size:9px; color:#374151;">
+            <strong>{{ $triagens_aptas }}</strong> aptos &nbsp;/&nbsp; <strong>{{ $triagens_total - $triagens_aptas }}</strong> inaptos &nbsp;/&nbsp; Total: <strong>{{ $triagens_total }}</strong>
+        </div>
+        <div style="background:#E5E7EB; border-radius:4px; height:18px; width:100%; position:relative; overflow:hidden;">
+            <div style="height:18px; background:#059669; width:{{ $pctApto }}%; border-radius:4px 0 0 4px;"></div>
+        </div>
+        <div style="margin-top:4px; font-size:8px; color:#6B7280;">
+            <span style="color:#059669; font-weight:bold;">&#9632;</span> Aptos: {{ $pctApto }}%
+            &nbsp;&nbsp;
+            <span style="color:#B91C1C; font-weight:bold;">&#9632;</span> Inaptos: {{ $pctInapto }}%
+            &nbsp;&nbsp;
+            Taxa de aptidão: <strong>{{ $taxa_aptidao }}%</strong>
+        </div>
+    </div>
+</div>
+
+{{-- Doações por Dia da Semana --}}
+<div class="section">
+    <div class="section-title">Doações por Dia da Semana</div>
+    <div class="chart-area">
+        @php
+            $maxDiaSemana = max($por_dia_semana) ?: 1;
+            $svgW = 420; $svgH = 70; $pad = 10;
+            $dias = array_keys($por_dia_semana);
+            $vals = array_values($por_dia_semana);
+            $n    = count($dias);
+            $barW = ($n > 0) ? floor(($svgW - $pad * 2) / $n) - 3 : 30;
+        @endphp
+        <svg width="{{ $svgW }}" height="{{ $svgH + 22 }}" xmlns="http://www.w3.org/2000/svg">
+            @foreach($vals as $idx => $val)
+            @php
+                $barH = $maxDiaSemana > 0 ? (int)(($val / $maxDiaSemana) * ($svgH - $pad * 2)) : 0;
+                $x    = $pad + $idx * (($svgW - $pad * 2) / $n);
+                $y    = $svgH - $pad - $barH;
+            @endphp
+            <rect x="{{ $x + 1 }}" y="{{ $y }}" width="{{ max(1, $barW) }}" height="{{ max(0, $barH) }}"
+                  fill="{{ $val === max($vals) ? '#991B1B' : '#B91C1C' }}" rx="2"/>
+            @if($val > 0)
+            <text x="{{ $x + $barW / 2 + 1 }}" y="{{ $y - 2 }}" font-size="7" fill="#374151" text-anchor="middle">{{ $val }}</text>
+            @endif
+            <text x="{{ $x + $barW / 2 + 1 }}" y="{{ $svgH + 14 }}" font-size="8" fill="#6B7280" text-anchor="middle">{{ $dias[$idx] }}</text>
+            @endforeach
+        </svg>
+    </div>
+</div>
+
 {{-- Tabela de Doações --}}
 <div class="section">
     <div class="section-title">Registro Detalhado de Doações</div>

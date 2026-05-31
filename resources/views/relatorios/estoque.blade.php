@@ -233,6 +233,54 @@
     @endif
 </div>
 
+{{-- Projeção de Duração --}}
+<div class="section">
+    <div class="section-title">Projeção de Duração do Estoque</div>
+    <table>
+        <thead>
+            <tr>
+                <th class="center">Tipo</th>
+                <th class="right">Qtd Atual (L)</th>
+                <th class="right">Entrada 30d (L)</th>
+                <th class="right">Consumo/dia (L)</th>
+                <th class="right">Duração Estimada</th>
+                <th class="center">Alerta</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($projecao_dias as $tipo => $p)
+            @php
+                $dur = $p['duracao_dias'];
+                if ($dur === null) {
+                    $alertaLabel = 'SEM DADOS'; $alertaColor = '#6B7280'; $alertaBg = '#F3F4F6';
+                } elseif ($dur < 7) {
+                    $alertaLabel = 'CRÍTICO'; $alertaColor = '#B91C1C'; $alertaBg = '#FEE2E2';
+                } elseif ($dur <= 14) {
+                    $alertaLabel = 'ATENÇÃO'; $alertaColor = '#92400E'; $alertaBg = '#FEF3C7';
+                } else {
+                    $alertaLabel = 'ESTÁVEL'; $alertaColor = '#065F46'; $alertaBg = '#D1FAE5';
+                }
+            @endphp
+            <tr>
+                <td class="center"><span class="badge-tipo">{{ $tipo }}</span></td>
+                <td class="right">{{ number_format($p['qtd_atual'], 1, ',', '.') }}</td>
+                <td class="right">{{ number_format($p['entrada_30d'], 1, ',', '.') }}</td>
+                <td class="right">{{ number_format($p['consumo_dia'], 2, ',', '.') }}</td>
+                <td class="right">{{ $dur !== null ? $dur . ' dias' : '—' }}</td>
+                <td class="center">
+                    <span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:8px; font-weight:bold; background:{{ $alertaBg }}; color:{{ $alertaColor }};">
+                        {{ $alertaLabel }}
+                    </span>
+                </td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+    <div style="margin-top:6px; font-size:8px; color:#6B7280;">
+        * Projeção baseada na média de entradas dos últimos 30 dias. "Sem dados" indica ausência de doações no período.
+    </div>
+</div>
+
 {{-- Rodapé --}}
 <div class="footer">
     <span>Doe Vida &copy; {{ date('Y') }} — Documento Gerado Automaticamente</span>

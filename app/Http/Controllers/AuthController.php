@@ -178,6 +178,7 @@ class AuthController extends Controller
                 'user'    => $user->fresh(),
                 'role'    => $role->name,
                 'roles'   => $user->getRoleNames()->toArray(),
+                'permissions' => $user->getAllPermissions()->pluck('name')->values(),
                 'lgpd_aceite_em' => $user->lgpd_aceite_em,
             ], 201);
 
@@ -393,6 +394,7 @@ class AuthController extends Controller
             'message' => 'Login realizado com sucesso!',
             'user'    => $user,
             'roles'   => $user->getRoleNames()->toArray(),
+            'permissions' => $user->getAllPermissions()->pluck('name')->values(),
             'token'   => $token,
             'token_type' => 'Bearer',
         ]);
