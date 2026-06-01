@@ -38,25 +38,64 @@ class EstatisticaController extends Controller
             ], 422);
         }
 
-        return response()->json(array_merge(
-            $this->estatisticasHemocentro($hemocentroId),
-            [
-                'doacoes_por_mes' => $this->doacoesPorMes($hemocentroId),
-                'doacoes_por_tipo' => $this->doacoesPorTipo($hemocentroId),
-                'total_doadores_ativos' => $this->totalDoadoresAtivos($hemocentroId),
-            ]
-        ));
+        $stats = $this->estatisticasHemocentro($hemocentroId);
+        
+        // Cálculos adicionais para o Diretor
+        $hoje = Carbon::today();
+        $inicioMes = Carbon::now()->startOfMonth();
+        $inicioMesAnterior = Carbon::now()->subMonth()->startOfMonth();
+        $fimMesAnterior = Carbon::now()->subMonth()->endOfMonth();
+
+        // Crescimento
+        $doacoesMesAnterior = Doacao::where('hemocentro_id', $hemocentroId)
+            ->whereBetween('data_hora_doacao', [$inicioMesAnterior, $fimMesAnterior])
+            ->count();
+        
+        $crescimentoMes = $doacoesMesAnterior > 0 
+            ? (($stats['doacoes_mes'] - $doacoesMesAnterior) / $doacoesMesAnterior) * 100 
+            : ($stats['doacoes_mes'] > 0 ? 100 : 0);
+
+        // Taxa de comparecimento
+        $taxaComparecimento = $stats['agendamentos_hoje'] > 0 
+            ? ($stats['confirmados_hoje'] / $stats['agendamentos_hoje']) * 100 
+            : 0;
+
+        // Média diária (baseada em dias passados no mês atual)
+        $diasPassados = Carbon::now()->day;
+        $mediaDiaria = $stats['doacoes_mes'] / ($diasPassados ?: 1);
+
+        return response()->json([
+            'doacoes_mes' => $stats['doacoes_mes'],
+            'crescimento_mes' => round($crescimentoMes, 1),
+            'agendamentos_hoje' => $stats['agendamentos_hoje'],
+            'confirmados_hoje' => $stats['confirmados_hoje'],
+            'taxa_comparecimento' => round($taxaComparecimento, 1),
+            'media_diaria' => round($mediaDiaria, 1),
+            'satisfacao' => null, // De molho conforme solicitado
+            'estoque_critico' => $stats['estoque_critico'],
+            'doacoes_por_mes' => $this->doacoesPorMes($hemocentroId),
+            'doacoes_por_tipo' => $this->doacoesPorTipo($hemocentroId),
+        ]);
     }
 
     public function admin()
     {
+        $totalAgendamentos = Agendamento::whereIn('status_agendamento', ['AGE', 'CON'])->count();
+        $totalCompareceram = Agendamento::where('status_agendamento', 'CON')->count()
+            + Doacao::distinct('agendamento_id')->count('agendamento_id');
+
+        $taxaComparecimento = $totalAgendamentos > 0
+            ? round(($totalCompareceram / $totalAgendamentos) * 100)
+            : 0;
+
         return response()->json([
-            'total_hemocentros' => Hemocentro::count(),
-            'total_usuarios' => User::count(),
+            'total_hemocentros'   => Hemocentro::count(),
+            'total_usuarios'      => User::count(),
+            'taxa_comparecimento' => $taxaComparecimento,
             'doacoes_por_hemocentro' => $this->doacoesPorHemocentro(),
-            'estoque_global' => $this->estoqueGlobal(),
-            'doacoes_por_mes' => $this->doacoesPorMes(),
-            'doacoes_por_tipo' => $this->doacoesPorTipo(),
+            'estoque_global'      => $this->estoqueGlobal(),
+            'doacoes_por_mes'     => $this->doacoesPorMes(),
+            'doacoes_por_tipo'    => $this->doacoesPorTipo(),
         ]);
     }
 
@@ -202,8 +241,16 @@ class EstatisticaController extends Controller
 
     private function monthExpression(): string
     {
-        return DB::connection()->getDriverName() === 'sqlite'
-            ? "strftime('%Y-%m', data_hora_doacao)"
-            : "DATE_FORMAT(data_hora_doacao, '%Y-%m')";
+        $driver = DB::connection()->getDriverName();
+        
+        if ($driver === 'sqlite') {
+            return "strftime('%Y-%m', data_hora_doacao)";
+        }
+        
+        if ($driver === 'pgsql') {
+            return "TO_CHAR(data_hora_doacao, 'YYYY-MM')";
+        }
+
+        return "DATE_FORMAT(data_hora_doacao, '%Y-%m')";
     }
 }

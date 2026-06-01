@@ -20,7 +20,7 @@ class UserController extends Controller
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6',
             'cpf' => 'required|string|max:14|unique:users,cpf',
-            'role' => 'required|string|in:doador,funcionario,diretor,admin',
+            'role' => ['required', 'string', 'exists:roles,name'],
             'hemocentro_id' => [
                 Rule::requiredIf(fn () => in_array($request->role, ['funcionario', 'diretor'], true)),
                 'nullable',
@@ -77,28 +77,28 @@ class UserController extends Controller
 
         // Filtros de busca
         $query->when($request->search, function ($q, $search) {
-            $q->where('name', 'like', "%{$search}%");
+            $q->where('name', DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like', "%{$search}%");
         });
 
         $query->when($request->cpf, function ($q, $cpf) {
-            $q->where('cpf', 'like', "%{$cpf}%");
+            $q->where('cpf', DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like', "%{$cpf}%");
         });
 
-        // Se for Funcionário ou Diretor, filtra doadores que já doaram no hemocentro deles
-        if (in_array($user->role_id, [2, 3])) { // 2 = Funcionario, 3 = Diretor
-            $hemocentroId = $user->hemocentro_id;
+        $userRoleName = $user->getRoleNames()->first() ?? '';
+        $isStaff = in_array($userRoleName, ['funcionario', 'diretor'])
+                   || $user->hasAnyPermission(['ver_agendamentos', 'ver_doacoes', 'ver_triagens']);
+        $isDonor  = $userRoleName === 'doador';
 
-            $query->where('role_id', 1) // Apenas doadores
+        if ($isStaff && $user->hemocentro_id) {
+            $hemocentroId = $user->hemocentro_id;
+            $query->where('role_id', 1)
                 ->whereHas('triagens', function ($q) use ($hemocentroId) {
                     $q->where('hemocentro_id', $hemocentroId);
                 });
-        } 
-        // Se for Admin (4), vê tudo sem filtro adicional.
-        // Se for Doador (1), por segurança, não deveria listar outros usuários, 
-        // mas se listar, verá apenas a si mesmo.
-        elseif ($user->role_id == 1) {
+        } elseif ($isDonor) {
             $query->where('id', $user->id);
         }
+        // Admin e roles customizadas sem hemocentro_id: sem filtro adicional (vê tudo)
 
         return $query->orderBy('name')->get();
     }
@@ -118,7 +118,7 @@ class UserController extends Controller
             'email' => 'sometimes|email|unique:users,email,' . $id,
             'password' => 'sometimes|min:6',
             'cpf' => 'sometimes|string|max:14|unique:users,cpf,' . $id,
-            'role' => 'sometimes|string|in:doador,funcionario,diretor,admin',
+            'role' => ['sometimes', 'string', 'exists:roles,name'],
             'hemocentro_id' => [
                 Rule::requiredIf(function () use ($request, $user) {
                     $role = $request->role ?? $user->getRoleNames()->first();
@@ -207,10 +207,10 @@ class UserController extends Controller
 
     private function buscarRole(string $nome): Role
     {
-        return Role::firstOrCreate([
+        return Role::where([
             'name' => $nome,
             'guard_name' => 'api',
-        ]);
+        ])->firstOrFail();
     }
 
     private function formatarData(string $data): string
