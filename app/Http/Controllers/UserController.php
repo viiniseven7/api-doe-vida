@@ -103,6 +103,68 @@ class UserController extends Controller
         return $query->orderBy('name')->get();
     }
 
+    public function perfilRfmt(Request $request)
+    {
+        $user = $request->user();
+        $roleName = $user->getRoleNames()->first() ?? '';
+        if ($roleName !== 'admin' && $user->role_id != 4 && !$user->hasPermissionTo('gerenciar_campanhas')) {
+            return response()->json(['message' => 'Não autorizado'], 403);
+        }
+
+        $hoje = now();
+
+        $doadores = User::where('role_id', 1)
+            ->where('status', 1)
+            ->whereNotNull('email')
+            ->withCount('doacoes as total_doacoes')
+            ->with(['doacoes' => function ($q) {
+                $q->select('user_id', 'data_hora_doacao', 'quantidade')
+                  ->orderBy('data_hora_doacao', 'desc');
+            }])
+            ->get(['id', 'name', 'email', 'tipo_sang', 'tempo_restricao', 'criado_em'])
+            ->map(function ($doador) use ($hoje) {
+                $doacoes = $doador->doacoes;
+
+                $ultimaDoacao = $doacoes->first();
+                $recenciaMeses = $ultimaDoacao
+                    ? (int) $hoje->diffInMonths($ultimaDoacao->data_hora_doacao)
+                    : 24;
+
+                $frequencia = (int) ($doador->total_doacoes ?? 0);
+
+                $volumeTotal = $doacoes->sum('quantidade');
+                if ($volumeTotal == 0) $volumeTotal = $frequencia * 450;
+
+                $primeiraDoacao = $doacoes->last();
+                $tempoPrimeiraMeses = $primeiraDoacao
+                    ? (int) $hoje->diffInMonths($primeiraDoacao->data_hora_doacao)
+                    : (int) $hoje->diffInMonths($doador->criado_em ?? $hoje);
+
+                $risco = 'Ativo';
+                if ($recenciaMeses > 18)     $risco = 'Inativo';
+                elseif ($recenciaMeses > 9)  $risco = 'Em_Risco';
+                elseif ($recenciaMeses > 3)  $risco = 'Atencao';
+
+                return [
+                    'id' => $doador->id,
+                    'name' => $doador->name,
+                    'email' => $doador->email,
+                    'tipo_sang' => $doador->tipo_sang,
+                    'recencia_meses' => max($recenciaMeses, 0),
+                    'frequencia_doacoes' => max($frequencia, 0),
+                    'volume_total_cc' => max((float) $volumeTotal, 0),
+                    'tempo_desde_primeira_doacao' => max($tempoPrimeiraMeses, 1),
+                    'risco_inatividade' => $risco,
+                ];
+            });
+
+        return response()->json([
+            'status' => 'sucesso',
+            'total' => $doadores->count(),
+            'data' => $doadores,
+        ]);
+    }
+
     public function show(int $id)
     {
         return User::findOrFail($id);

@@ -186,6 +186,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::middleware('role_or_permission:admin,gerenciar_campanhas')->prefix('auth')->group(function () {
+        Route::get('/doadores/perfil-rfmt', [UserController::class, 'perfilRfmt']);
         Route::post('/campanhas',        [CampanhaController::class, 'store']);
         Route::put('/campanhas/{id}',    [CampanhaController::class, 'update']);
         Route::delete('/campanhas/{id}', [CampanhaController::class, 'destroy']);
