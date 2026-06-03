@@ -222,11 +222,13 @@ class RelatorioController extends Controller
     public function pdfDoacoes(Request $request)
     {
         $hemocentroId = $this->getHemocentroId($request);
-        $periodo      = (int) $request->query('periodo', 30);
+        $filtros      = $this->reportFilters($request);
+        $periodo      = $filtros['periodo_dias'];
 
         $query = Doacao::with(['doador', 'funcionario', 'hemocentro'])
-            ->where('data_hora_doacao', '>=', Carbon::now()->subDays($periodo))
             ->orderBy('data_hora_doacao', 'desc');
+        $this->applyPeriod($query, 'data_hora_doacao', $filtros);
+        $this->applyBloodType($query, 'tipo_sangue', $filtros);
 
         if ($hemocentroId) {
             $query->where('hemocentro_id', $hemocentroId);
@@ -249,7 +251,8 @@ class RelatorioController extends Controller
             ->sortKeys();
 
         // Taxa de conversão
-        $agBase = Agendamento::query()->where('criado_em', '>=', Carbon::now()->subDays($periodo));
+        $agBase = Agendamento::query();
+        $this->applyPeriod($agBase, 'criado_em', $filtros);
         if ($hemocentroId) {
             $agBase->where('hemocentro_id', $hemocentroId);
         }
@@ -266,7 +269,8 @@ class RelatorioController extends Controller
         }
 
         // Triagens no período
-        $triagemBase = DB::table('triagens')->where('created_at', '>=', Carbon::now()->subDays($periodo));
+        $triagemBase = DB::table('triagens');
+        $this->applyPeriod($triagemBase, 'created_at', $filtros);
         if ($hemocentroId) {
             $triagemBase->where('hemocentro_id', $hemocentroId);
         }
@@ -275,8 +279,11 @@ class RelatorioController extends Controller
         $taxaAptidao   = round($triagensAptas / max(1, $triagensTotal) * 100, 1);
 
         $pdf = Pdf::loadView('relatorios.doacoes', [
+            ...$this->reportDocumentMeta('doacoes', $filtros),
             'doacoes'            => $doacoes,
             'periodo'            => $periodo,
+            'periodo_label'      => $filtros['label'],
+            'tipo_filtro'        => $filtros['tipo_sangue'] ?? 'Todos os tipos',
             'gerado_em'          => now()->format('d/m/Y H:i'),
             'unidade'            => $hemocentroId ? Hemocentro::find($hemocentroId)?->nome : 'Todas as Unidades',
             'volume_total'       => $volumeTotal,
@@ -302,8 +309,10 @@ class RelatorioController extends Controller
     public function pdfEstoque(Request $request)
     {
         $hemocentroId = $this->getHemocentroId($request);
+        $filtros      = $this->reportFilters($request);
 
         $query = Estoque::with('hemocentro');
+        $this->applyBloodType($query, 'tipo_sangue', $filtros);
         if ($hemocentroId) {
             $query->where('hemocentro_id', $hemocentroId);
         }
@@ -323,13 +332,13 @@ class RelatorioController extends Controller
         $maxEstoque = max(array_column($porTipo, 'qtd')) ?: 1;
 
         // Entradas por tipo nos últimos 30 dias
-        $hist30dRaw = Doacao::query()
-            ->where('data_hora_doacao', '>=', Carbon::now()->subDays(30))
+        $histQuery = Doacao::query()
             ->when($hemocentroId, fn ($q) => $q->where('hemocentro_id', $hemocentroId))
             ->selectRaw('tipo_sangue, SUM(quantidade) as total_ml')
-            ->groupBy('tipo_sangue')
-            ->pluck('total_ml', 'tipo_sangue')
-            ->toArray();
+            ->groupBy('tipo_sangue');
+        $this->applyPeriod($histQuery, 'data_hora_doacao', $filtros);
+        $this->applyBloodType($histQuery, 'tipo_sangue', $filtros);
+        $hist30dRaw = $histQuery->pluck('total_ml', 'tipo_sangue')->toArray();
 
         $historico30d = array_fill_keys(self::TIPOS_SANGUINEOS, 0.0);
         foreach ($hist30dRaw as $tipo => $total) {
@@ -353,9 +362,12 @@ class RelatorioController extends Controller
         }
 
         $pdf = Pdf::loadView('relatorios.estoque', [
+            ...$this->reportDocumentMeta('estoque', $filtros),
             'estoques'      => $estoques,
             'criticos'      => $criticos,
             'estaveis'      => $estaveis,
+            'periodo_label' => $filtros['label'],
+            'tipo_filtro'   => $filtros['tipo_sangue'] ?? 'Todos os tipos',
             'gerado_em'     => now()->format('d/m/Y H:i'),
             'unidade'       => $hemocentroId ? Hemocentro::find($hemocentroId)?->nome : 'Global',
             'volume_global' => $volumeGlobal,
@@ -374,8 +386,11 @@ class RelatorioController extends Controller
     public function pdfDoadores(Request $request)
     {
         $hemocentroId = $this->getHemocentroId($request);
+        $filtros      = $this->reportFilters($request);
 
         $query = User::where('role_id', 1)->orderBy('name');
+        $this->applyBloodType($query, 'tipo_sang', $filtros);
+        $this->applyPeriod($query, 'criado_em', $filtros);
         if ($hemocentroId) {
             $query->whereHas('triagens', fn ($q) => $q->where('hemocentro_id', $hemocentroId));
         }
@@ -405,20 +420,26 @@ class RelatorioController extends Controller
 
         // Doadores com ao menos 1 doação
         $doadoresComDoacoes = Doacao::query()
-            ->when($hemocentroId, fn ($q) => $q->where('hemocentro_id', $hemocentroId))
-            ->distinct('user_id')->count('user_id');
+            ->when($hemocentroId, fn ($q) => $q->where('hemocentro_id', $hemocentroId));
+        $this->applyPeriod($doadoresComDoacoes, 'data_hora_doacao', $filtros);
+        $this->applyBloodType($doadoresComDoacoes, 'tipo_sangue', $filtros);
+        $doadoresComDoacoes = $doadoresComDoacoes->distinct('user_id')->count('user_id');
 
         $totalDoacoes = Doacao::query()
-            ->when($hemocentroId, fn ($q) => $q->where('hemocentro_id', $hemocentroId))
-            ->count();
+            ->when($hemocentroId, fn ($q) => $q->where('hemocentro_id', $hemocentroId));
+        $this->applyPeriod($totalDoacoes, 'data_hora_doacao', $filtros);
+        $this->applyBloodType($totalDoacoes, 'tipo_sangue', $filtros);
+        $totalDoacoes = $totalDoacoes->count();
         $mediaDoacoesPorDoador = $doadoresComDoacoes > 0
             ? round($totalDoacoes / $doadoresComDoacoes, 1) : 0;
 
         // Top 10 doadores por total de doações
         $topDoadoresRaw = Doacao::query()
             ->select('user_id', DB::raw('COUNT(*) as total_doacoes'), DB::raw('MAX(data_hora_doacao) as ultima_doacao'))
-            ->when($hemocentroId, fn ($q) => $q->where('hemocentro_id', $hemocentroId))
-            ->groupBy('user_id')
+            ->when($hemocentroId, fn ($q) => $q->where('hemocentro_id', $hemocentroId));
+        $this->applyPeriod($topDoadoresRaw, 'data_hora_doacao', $filtros);
+        $this->applyBloodType($topDoadoresRaw, 'tipo_sangue', $filtros);
+        $topDoadoresRaw = $topDoadoresRaw->groupBy('user_id')
             ->orderByDesc('total_doacoes')
             ->limit(10)
             ->get();
@@ -440,7 +461,10 @@ class RelatorioController extends Controller
         )->count();
 
         $pdf = Pdf::loadView('relatorios.doadores', [
+            ...$this->reportDocumentMeta('doadores', $filtros),
             'doadores'                 => $doadores,
+            'periodo_label'            => $filtros['label'],
+            'tipo_filtro'              => $filtros['tipo_sangue'] ?? 'Todos os tipos',
             'gerado_em'                => now()->format('d/m/Y H:i'),
             'unidade'                  => $hemocentroId ? Hemocentro::find($hemocentroId)?->nome : 'Geral',
             'dist_tipo'                => $distTipo,
@@ -460,11 +484,13 @@ class RelatorioController extends Controller
     public function pdfAgendamentos(Request $request)
     {
         $hemocentroId = $this->getHemocentroId($request);
-        $periodo      = (int) $request->query('periodo', 30);
+        $filtros      = $this->reportFilters($request);
+        $periodo      = $filtros['periodo_dias'];
 
         $query = Agendamento::with(['doador', 'hemocentro'])
-            ->where('criado_em', '>=', Carbon::now()->subDays($periodo))
             ->orderBy('data_hora_doacao', 'desc');
+        $this->applyPeriod($query, 'criado_em', $filtros);
+        $this->applyDonorBloodType($query, $filtros);
         if ($hemocentroId) {
             $query->where('hemocentro_id', $hemocentroId);
         }
@@ -493,8 +519,11 @@ class RelatorioController extends Controller
         }
 
         $pdf = Pdf::loadView('relatorios.agendamentos', [
+            ...$this->reportDocumentMeta('agendamentos', $filtros),
             'agendamentos'   => $agendamentos,
             'periodo'        => $periodo,
+            'periodo_label'  => $filtros['label'],
+            'tipo_filtro'    => $filtros['tipo_sangue'] ?? 'Todos os tipos',
             'gerado_em'      => now()->format('d/m/Y H:i'),
             'unidade'        => $hemocentroId ? Hemocentro::find($hemocentroId)?->nome : 'Todas as Unidades',
             'total'          => $total,
@@ -511,11 +540,13 @@ class RelatorioController extends Controller
     public function pdfTriagens(Request $request)
     {
         $hemocentroId = $this->getHemocentroId($request);
-        $periodo      = (int) $request->query('periodo', 30);
+        $filtros      = $this->reportFilters($request);
+        $periodo      = $filtros['periodo_dias'];
 
         $query = \App\Models\Triagem::with(['doador', 'funcionario', 'hemocentro', 'sinaisVitais'])
-            ->where('data_triagem', '>=', Carbon::now()->subDays($periodo))
             ->orderBy('data_triagem', 'desc');
+        $this->applyPeriod($query, 'data_triagem', $filtros);
+        $this->applyDonorBloodType($query, $filtros);
         if ($hemocentroId) {
             $query->where('hemocentro_id', $hemocentroId);
         }
@@ -545,8 +576,11 @@ class RelatorioController extends Controller
             ->values();
 
         $pdf = Pdf::loadView('relatorios.triagens', [
+            ...$this->reportDocumentMeta('triagens', $filtros),
             'triagens'       => $triagens,
             'periodo'        => $periodo,
+            'periodo_label'  => $filtros['label'],
+            'tipo_filtro'    => $filtros['tipo_sangue'] ?? 'Todos os tipos',
             'gerado_em'      => now()->format('d/m/Y H:i'),
             'unidade'        => $hemocentroId ? Hemocentro::find($hemocentroId)?->nome : 'Todas as Unidades',
             'total'          => $total,
@@ -565,8 +599,10 @@ class RelatorioController extends Controller
     public function pdfDesempenho(Request $request)
     {
         $hemocentroId = $this->getHemocentroId($request);
+        $filtros      = $this->reportFilters($request);
+        $meses        = max(1, (int) ceil(($filtros['periodo_dias'] ?: 180) / 30));
 
-        $performanceMensal   = $this->performanceMensalQuery($hemocentroId, 6);
+        $performanceMensal   = $this->performanceMensalQuery($hemocentroId, $meses, $filtros);
         $totalDoacoesPeriodo = array_sum(array_column($performanceMensal, 'total'));
         $volumeTotalMl       = array_sum(array_column($performanceMensal, 'volume_ml'));
 
@@ -579,11 +615,12 @@ class RelatorioController extends Controller
 
         $porHemocentroRaw = Doacao::query()
             ->select('hemocentro_id', DB::raw('COUNT(*) as total'), DB::raw('SUM(quantidade) as volume_ml'))
-            ->where('data_hora_doacao', '>=', Carbon::now()->subMonths(6))
             ->when($hemocentroId, fn ($q) => $q->where('hemocentro_id', $hemocentroId))
             ->groupBy('hemocentro_id')
-            ->orderByDesc('total')
-            ->get();
+            ->orderByDesc('total');
+        $this->applyPeriod($porHemocentroRaw, 'data_hora_doacao', $filtros);
+        $this->applyBloodType($porHemocentroRaw, 'tipo_sangue', $filtros);
+        $porHemocentroRaw = $porHemocentroRaw->get();
         $totalGeral = $porHemocentroRaw->sum('total') ?: 1;
 
         $porHemocentro = $porHemocentroRaw->map(function ($row) use ($totalGeral) {
@@ -592,17 +629,18 @@ class RelatorioController extends Controller
                 'nome'      => $hemo?->nome ?? 'N/D',
                 'total'     => (int) $row->total,
                 'volume_ml' => round((float) $row->volume_ml, 0),
-                'media_mes' => round($row->total / 6, 1),
+                'media_mes' => round($row->total / max(1, $meses), 1),
                 'pct_total' => round($row->total / $totalGeral * 100, 1),
             ];
         });
 
         $topFuncionarios = Doacao::query()
             ->select('funcionario_id', DB::raw('COUNT(*) as total'))
-            ->where('data_hora_doacao', '>=', Carbon::now()->subMonths(6))
             ->whereNotNull('funcionario_id')
-            ->when($hemocentroId, fn ($q) => $q->where('hemocentro_id', $hemocentroId))
-            ->groupBy('funcionario_id')
+            ->when($hemocentroId, fn ($q) => $q->where('hemocentro_id', $hemocentroId));
+        $this->applyPeriod($topFuncionarios, 'data_hora_doacao', $filtros);
+        $this->applyBloodType($topFuncionarios, 'tipo_sangue', $filtros);
+        $topFuncionarios = $topFuncionarios->groupBy('funcionario_id')
             ->orderByDesc('total')
             ->limit(5)
             ->get()
@@ -616,14 +654,17 @@ class RelatorioController extends Controller
                 ];
             });
 
-        $agMes         = Agendamento::query()->where('criado_em', '>=', Carbon::now()->startOfMonth())
-            ->when($hemocentroId, fn ($q) => $q->where('hemocentro_id', $hemocentroId));
+        $agMes         = Agendamento::query()->when($hemocentroId, fn ($q) => $q->where('hemocentro_id', $hemocentroId));
+        $this->applyPeriod($agMes, 'criado_em', $filtros);
         $agTotal       = (clone $agMes)->count();
         $agConfirmados = (clone $agMes)->where('status_agendamento', 'CON')->count();
         $taxaOcupacao  = $agTotal > 0 ? round($agConfirmados / $agTotal * 100, 1) : 0;
 
         $pdf = Pdf::loadView('relatorios.desempenho', [
+            ...$this->reportDocumentMeta('desempenho', $filtros),
             'gerado_em'          => now()->format('d/m/Y H:i'),
+            'periodo_label'      => $filtros['label'],
+            'tipo_filtro'        => $filtros['tipo_sangue'] ?? 'Todos os tipos',
             'unidade'            => $hemocentroId ? Hemocentro::find($hemocentroId)?->nome : 'Todas as Unidades',
             'performance_mensal' => $performanceMensal,
             'total_doacoes'      => $totalDoacoesPeriodo,
@@ -639,6 +680,109 @@ class RelatorioController extends Controller
     }
 
     // ─── Helpers privados ─────────────────────────────────────────────────────
+
+    private function reportFilters(Request $request): array
+    {
+        $periodo = (string) $request->query('periodo', '30');
+        $tipoSangue = $request->query('tipo_sangue');
+        $tipoSangue = in_array($tipoSangue, self::TIPOS_SANGUINEOS, true) ? $tipoSangue : null;
+
+        if ($request->query('data_inicio') && $request->query('data_fim')) {
+            $inicio = Carbon::parse($request->query('data_inicio'))->startOfDay();
+            $fim = Carbon::parse($request->query('data_fim'))->endOfDay();
+            return [
+                'inicio' => $inicio,
+                'fim' => $fim,
+                'periodo_dias' => max(1, $inicio->diffInDays($fim) + 1),
+                'label' => $request->query('periodo_label') ?: $inicio->format('d/m/Y') . ' a ' . $fim->format('d/m/Y'),
+                'tipo_sangue' => $tipoSangue,
+            ];
+        }
+
+        if ($periodo === 'all') {
+            return [
+                'inicio' => null,
+                'fim' => null,
+                'periodo_dias' => 3650,
+                'label' => $request->query('periodo_label') ?: 'Período completo',
+                'tipo_sangue' => $tipoSangue,
+            ];
+        }
+
+        if ($periodo === 'previous_month') {
+            $inicio = now()->subMonthNoOverflow()->startOfMonth();
+            $fim = now()->subMonthNoOverflow()->endOfMonth();
+            return [
+                'inicio' => $inicio,
+                'fim' => $fim,
+                'periodo_dias' => max(1, $inicio->diffInDays($fim) + 1),
+                'label' => $request->query('periodo_label') ?: 'Mês anterior (' . $inicio->format('d/m/Y') . ' a ' . $fim->format('d/m/Y') . ')',
+                'tipo_sangue' => $tipoSangue,
+            ];
+        }
+
+        $dias = max(1, (int) $periodo ?: 30);
+        $inicio = now()->subDays($dias)->startOfDay();
+        $fim = now()->endOfDay();
+
+        return [
+            'inicio' => $inicio,
+            'fim' => $fim,
+            'periodo_dias' => $dias,
+            'label' => $request->query('periodo_label') ?: 'Últimos ' . $dias . ' dias',
+            'tipo_sangue' => $tipoSangue,
+        ];
+    }
+
+    private function reportDocumentMeta(string $tipo, array $filtros): array
+    {
+        $nomes = [
+            'doacoes' => 'Doações',
+            'estoque' => 'Estoque',
+            'doadores' => 'Doadores',
+            'agendamentos' => 'Agendamentos',
+            'triagens' => 'Triagens',
+            'desempenho' => 'Desempenho',
+        ];
+
+        $subtitulos = [
+            'doacoes' => 'Coletas realizadas, volume coletado, tipos sanguíneos e indicadores operacionais.',
+            'estoque' => 'Níveis atuais, alertas críticos, entradas registradas e projeção de duração.',
+            'doadores' => 'Cadastros, perfil dos doadores, atividade registrada e ranking de participação.',
+            'agendamentos' => 'Status, conclusão, taxa de comparecimento e distribuição dos agendamentos.',
+            'triagens' => 'Aptidão, motivos de inaptidão, sinais vitais e triagens realizadas.',
+            'desempenho' => 'Performance operacional, volume coletado, produtividade e comparação mensal.',
+        ];
+
+        $nome = $nomes[$tipo] ?? ucfirst($tipo);
+        $periodo = $filtros['label'] ?? 'Período completo';
+
+        return [
+            'titulo' => "Relatório de {$nome} - {$periodo}",
+            'subtitulo' => $subtitulos[$tipo] ?? 'Indicadores consolidados do período selecionado.',
+        ];
+    }
+
+    private function applyPeriod($query, string $column, array $filtros): void
+    {
+        if ($filtros['inicio'] && $filtros['fim']) {
+            $query->whereBetween($column, [$filtros['inicio'], $filtros['fim']]);
+        }
+    }
+
+    private function applyBloodType($query, string $column, array $filtros): void
+    {
+        if ($filtros['tipo_sangue']) {
+            $query->where($column, $filtros['tipo_sangue']);
+        }
+    }
+
+    private function applyDonorBloodType($query, array $filtros): void
+    {
+        if ($filtros['tipo_sangue']) {
+            $query->whereHas('doador', fn ($q) => $q->where('tipo_sang', $filtros['tipo_sangue']));
+        }
+    }
 
     private function getHemocentroId(Request $request): ?int
     {
@@ -675,14 +819,20 @@ class RelatorioController extends Controller
         ])->values()->all();
     }
 
-    private function performanceMensalQuery(?int $hemocentroId, int $meses = 12): array
+    private function performanceMensalQuery(?int $hemocentroId, int $meses = 12, ?array $filtros = null): array
     {
         $query = Doacao::query()
             ->selectRaw($this->monthExpression() . ' as mes, COUNT(*) as total, SUM(quantidade) as volume_ml')
             ->whereNotNull('data_hora_doacao')
-            ->where('data_hora_doacao', '>=', Carbon::now()->subMonths($meses - 1)->startOfMonth())
             ->groupBy('mes')
             ->orderBy('mes');
+
+        if ($filtros) {
+            $this->applyPeriod($query, 'data_hora_doacao', $filtros);
+            $this->applyBloodType($query, 'tipo_sangue', $filtros);
+        } else {
+            $query->where('data_hora_doacao', '>=', Carbon::now()->subMonths($meses - 1)->startOfMonth());
+        }
 
         if ($hemocentroId) {
             $query->where('hemocentro_id', $hemocentroId);

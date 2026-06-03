@@ -2,13 +2,13 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <title>Relatório de Agendamentos — Doe Vida</title>
+    <title>{{ $titulo ?? 'Relatório de Agendamentos' }} — Doe Vida</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1F2937; background: #fff; }
 
         .header {
-            background: linear-gradient(135deg, #7F1D1D 0%, #B91C1C 50%, #DC2626 100%);
+            background-color: #B91C1C;
             color: white; padding: 18px 24px; margin-bottom: 16px;
         }
         .header-inner { display: table; width: 100%; }
@@ -85,12 +85,13 @@
 <div class="header">
     <div class="header-inner">
         <div class="header-left">
-            <h1>Relatório de Agendamentos</h1>
-            <div class="subtitle">Doe Vida — Sistema de Gestão de Doações de Sangue</div>
+            <h1>{{ $titulo ?? 'Relatório de Agendamentos - ' . ($periodo_label ?? ('últimos ' . $periodo . ' dias')) }}</h1>
+            <div class="subtitle">{{ $subtitulo ?? 'Status, conclusão e distribuição dos agendamentos.' }} Tipo: {{ $tipo_filtro ?? 'Todos os tipos' }}</div>
         </div>
         <div class="header-right">
             <strong>{{ $unidade }}</strong>
-            Período: últimos {{ $periodo }} dias<br>
+            Período: {{ $periodo_label ?? ('últimos ' . $periodo . ' dias') }}<br>
+            Tipo: {{ $tipo_filtro ?? 'Todos os tipos' }}<br>
             Gerado em {{ $gerado_em }}
         </div>
     </div>
@@ -128,6 +129,7 @@
 <div class="two-col">
     <div class="two-col-cell">
         <div class="section-title">Agendamentos por Unidade</div>
+        <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Total de agendamentos puxados por hemocentro no período selecionado.</div>
         <div class="chart-area">
             @forelse($por_hemocentro as $h)
             @php $pct = $max_hemo > 0 ? round($h['total'] / $max_hemo * 100) : 0; @endphp
@@ -145,6 +147,7 @@
     </div>
     <div class="two-col-cell">
         <div class="section-title">Agendamentos por Dia da Semana</div>
+        <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Distribuição semanal dos horários de doação agendados.</div>
         <div class="chart-area">
             @php
                 $maxDia = max($por_dia_semana) ?: 1;
@@ -176,6 +179,7 @@
 {{-- Tabela detalhada --}}
 <div class="section">
     <div class="section-title">Registro Detalhado de Agendamentos</div>
+    <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Lista dos agendamentos exportados com data, doador, unidade e status.</div>
     @if($agendamentos->count() > 0)
     <table>
         <thead>

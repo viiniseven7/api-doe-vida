@@ -2,13 +2,13 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <title>Relatório de Triagens — Doe Vida</title>
+    <title>{{ $titulo ?? 'Relatório de Triagens' }} — Doe Vida</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1F2937; background: #fff; }
 
         .header {
-            background: linear-gradient(135deg, #4C1D95 0%, #6D28D9 50%, #7C3AED 100%);
+            background-color: #6D28D9;
             color: white; padding: 18px 24px; margin-bottom: 16px;
         }
         .header-inner { display: table; width: 100%; }
@@ -78,12 +78,13 @@
 <div class="header">
     <div class="header-inner">
         <div class="header-left">
-            <h1>Relatório de Triagens</h1>
-            <div class="subtitle">Doe Vida — Sistema de Gestão de Doações de Sangue</div>
+            <h1>{{ $titulo ?? 'Relatório de Triagens - ' . ($periodo_label ?? ('últimos ' . $periodo . ' dias')) }}</h1>
+            <div class="subtitle">{{ $subtitulo ?? 'Aptidão, motivos de inaptidão e triagens realizadas.' }} Tipo: {{ $tipo_filtro ?? 'Todos os tipos' }}</div>
         </div>
         <div class="header-right">
             <strong>{{ $unidade }}</strong>
-            Período: últimos {{ $periodo }} dias<br>
+            Período: {{ $periodo_label ?? ('últimos ' . $periodo . ' dias') }}<br>
+            Tipo: {{ $tipo_filtro ?? 'Todos os tipos' }}<br>
             Gerado em {{ $gerado_em }}
         </div>
     </div>
@@ -120,6 +121,7 @@
 <div class="two-col">
     <div class="two-col-cell">
         <div class="section-title">Principais Motivos de Inaptidão</div>
+        <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Motivos mais frequentes entre as triagens não aptas no período selecionado.</div>
         <div class="chart-area">
             @forelse($motivos as $motivo => $count)
             @php $pct = $max_motivo > 0 ? round($count / $max_motivo * 100) : 0; @endphp
@@ -137,6 +139,7 @@
     </div>
     <div class="two-col-cell">
         <div class="section-title">Por Unidade de Saúde</div>
+        <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Quantidade de triagens registradas por hemocentro.</div>
         <div class="chart-area">
             @php $maxHemo = $por_hemocentro->max('total') ?: 1; @endphp
             @forelse($por_hemocentro as $h)
@@ -158,6 +161,7 @@
 {{-- Tabela detalhada --}}
 <div class="section">
     <div class="section-title">Registro Detalhado de Triagens</div>
+    <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Lista das triagens exportadas com doador, funcionário, unidade e resultado.</div>
     @if($triagens->count() > 0)
     <table>
         <thead>

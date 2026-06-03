@@ -2,14 +2,14 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <title>Relatório de Doadores — Doe Vida</title>
+    <title>{{ $titulo ?? 'Relatório de Doadores' }} — Doe Vida</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1F2937; background: #fff; }
 
         /* ── Cabeçalho ── */
         .header {
-            background: linear-gradient(135deg, #064E3B 0%, #047857 50%, #059669 100%);
+            background-color: #047857;
             color: white; padding: 18px 24px; margin-bottom: 16px;
         }
         .header-inner { display: flex; justify-content: space-between; align-items: center; }
@@ -87,11 +87,13 @@
 <div class="header">
     <div class="header-inner">
         <div>
-            <h1>Relatório de Doadores Cadastrados</h1>
-            <div class="subtitle">Doe Vida — Sistema de Gestão de Doações de Sangue</div>
+            <h1>{{ $titulo ?? 'Relatório de Doadores - ' . ($periodo_label ?? 'Período completo') }}</h1>
+            <div class="subtitle">{{ $subtitulo ?? 'Cadastros, perfil dos doadores e atividade registrada.' }} Tipo: {{ $tipo_filtro ?? 'Todos os tipos' }}</div>
         </div>
         <div class="header-meta">
             <strong>{{ $unidade }}</strong>
+            Período: {{ $periodo_label ?? 'Período completo' }}<br>
+            Tipo: {{ $tipo_filtro ?? 'Todos os tipos' }}<br>
             Total: {{ count($doadores) }} doadores<br>
             Gerado em {{ $gerado_em }}
         </div>
@@ -130,6 +132,7 @@
     {{-- Distribuição por tipo sanguíneo --}}
     <div class="col">
         <div class="section-title">Por Tipo Sanguíneo</div>
+        <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Distribuição dos doadores cadastrados conforme o tipo sanguíneo filtrado.</div>
         <div class="chart-area">
             @foreach($dist_tipo as $tipo => $count)
             @php $pct = $max_dist > 0 ? round(($count / $max_dist) * 100) : 0; @endphp
@@ -147,6 +150,7 @@
     {{-- Faixa etária --}}
     <div class="col">
         <div class="section-title">Por Faixa Etária</div>
+        <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Perfil etário dos doadores encontrados no filtro atual.</div>
         <div class="chart-area">
             @foreach($faixas as $faixa => $count)
             @php $pct = $max_faixa > 0 ? round(($count / $max_faixa) * 100) : 0; @endphp
@@ -202,6 +206,7 @@
 {{-- Top 10 Doadores --}}
 <div class="section">
     <div class="section-title">Top 10 Doadores Mais Frequentes</div>
+    <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Ranking calculado pelas doações realizadas no período {{ $periodo_label ?? 'Período completo' }}.</div>
     @if($top_doadores->count() > 0)
     <table>
         <thead>
@@ -248,6 +253,7 @@
 {{-- Tabela de Doadores --}}
 <div class="section">
     <div class="section-title">Lista Completa de Doadores</div>
+    <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Relação de doadores exportados com status, contato e dados cadastrais principais.</div>
     @if($doadores->count() > 0)
     <table>
         <thead>

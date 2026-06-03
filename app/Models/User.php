@@ -84,7 +84,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function doacoes()
     {
-        return $this->hasMany(Doacao::class, 'user_id');
+        return $this->hasMany(\App\Models\Doacao::class, 'user_id');
     }
 
     public function preTriagemRespostas()
