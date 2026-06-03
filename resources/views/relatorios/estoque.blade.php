@@ -2,14 +2,14 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <title>Relatório de Estoque — Doe Vida</title>
+    <title>{{ $titulo ?? 'Relatório de Estoque' }} — Doe Vida</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1F2937; background: #fff; }
 
         /* ── Cabeçalho ── */
         .header {
-            background: linear-gradient(135deg, #1E3A5F 0%, #1D4ED8 60%, #2563EB 100%);
+            background-color: #1D4ED8;
             color: white; padding: 18px 24px; margin-bottom: 16px;
         }
         .header-inner { display: flex; justify-content: space-between; align-items: center; }
@@ -101,11 +101,13 @@
 <div class="header">
     <div class="header-inner">
         <div>
-            <h1>Relatório de Estoque de Sangue</h1>
-            <div class="subtitle">Doe Vida — Sistema de Gestão de Estoques</div>
+            <h1>{{ $titulo ?? 'Relatório de Estoque - ' . ($periodo_label ?? 'Período completo') }}</h1>
+            <div class="subtitle">{{ $subtitulo ?? 'Níveis atuais, alertas críticos e entradas registradas.' }} Tipo: {{ $tipo_filtro ?? 'Todos os tipos' }}</div>
         </div>
         <div class="header-meta">
             <strong>{{ $unidade }}</strong>
+            Período: {{ $periodo_label ?? 'Período completo' }}<br>
+            Tipo: {{ $tipo_filtro ?? 'Todos os tipos' }}<br>
             Gerado em {{ $gerado_em }}
         </div>
     </div>
@@ -150,6 +152,7 @@
 {{-- Gráfico: Nível por Tipo Sanguíneo --}}
 <div class="section">
     <div class="section-title">Nível de Estoque por Tipo Sanguíneo</div>
+    <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Posição atual do estoque comparada com o mínimo esperado por tipo.</div>
     <div class="chart-area">
         @foreach($por_tipo as $tipo => $dados)
         @php
@@ -186,6 +189,7 @@
 {{-- Tabela Detalhada --}}
 <div class="section">
     <div class="section-title">Detalhamento por Unidade e Tipo Sanguíneo</div>
+    <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Lista do estoque exportado por hemocentro, tipo sanguíneo, quantidade atual e mínimo.</div>
     @if($estoques->count() > 0)
     <table>
         <thead>
@@ -236,6 +240,7 @@
 {{-- Projeção de Duração --}}
 <div class="section">
     <div class="section-title">Projeção de Duração do Estoque</div>
+    <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Estimativa calculada com as entradas registradas no período {{ $periodo_label ?? 'Período completo' }}.</div>
     <table>
         <thead>
             <tr>

@@ -2,14 +2,14 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <title>Relatório de Doações — Doe Vida</title>
+    <title>{{ $titulo ?? 'Relatório de Doações' }} — Doe Vida</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1F2937; background: #fff; }
 
         /* ── Cabeçalho ── */
         .header {
-            background: linear-gradient(135deg, #7F1D1D 0%, #B91C1C 50%, #DC2626 100%);
+            background-color: #B91C1C;
             color: white; padding: 18px 24px; margin-bottom: 16px;
         }
         .header-inner { display: flex; justify-content: space-between; align-items: center; }
@@ -93,12 +93,13 @@
 <div class="header">
     <div class="header-inner">
         <div>
-            <h1>Relatório de Doações de Sangue</h1>
-            <div class="subtitle">Doe Vida — Sistema de Gestão de Doações</div>
+            <h1>{{ $titulo ?? 'Relatório de Doações - ' . ($periodo_label ?? ('últimos ' . $periodo . ' dias')) }}</h1>
+            <div class="subtitle">{{ $subtitulo ?? 'Coletas, volume, tipos sanguíneos e indicadores operacionais.' }} Tipo: {{ $tipo_filtro ?? 'Todos os tipos' }}</div>
         </div>
         <div class="header-meta">
             <strong>{{ $unidade }}</strong>
-            Período: últimos {{ $periodo }} dias<br>
+            Período: {{ $periodo_label ?? ('últimos ' . $periodo . ' dias') }}<br>
+            Tipo: {{ $tipo_filtro ?? 'Todos os tipos' }}<br>
             Gerado em {{ $gerado_em }}
         </div>
     </div>
@@ -135,6 +136,7 @@
     {{-- Distribuição por Tipo Sanguíneo --}}
     <div class="col">
         <div class="section-title">Distribuição por Tipo Sanguíneo</div>
+        <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Quantidade de doações agrupadas por tipo no período {{ $periodo_label ?? ('últimos ' . $periodo . ' dias') }}.</div>
         <div class="chart-area">
             @foreach($dist_tipo as $tipo => $count)
             @php $pct = $max_dist_tipo > 0 ? round(($count / $max_dist_tipo) * 100) : 0; @endphp
@@ -152,6 +154,7 @@
     {{-- Gráfico de doações por dia (SVG sparkline) --}}
     <div class="col">
         <div class="section-title">Doações por Dia (Período)</div>
+        <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Evolução diária das coletas puxadas da tabela de doações.</div>
         <div class="chart-area">
             @if($por_dia->count() > 0)
             @php
@@ -195,6 +198,7 @@
 {{-- Funil de Conversão --}}
 <div class="section">
     <div class="section-title">Funil de Conversão</div>
+    <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Comparação entre agendamentos, triagens e doações concluídas no período selecionado.</div>
     <div class="chart-area">
         @php
             $pctTriagem = $total_agendamentos > 0 ? round($triagens_total / $total_agendamentos * 100, 1) : 0;
@@ -229,6 +233,7 @@
 {{-- Taxa de Aptidão em Triagem --}}
 <div class="section">
     <div class="section-title">Taxa de Aptidão em Triagem</div>
+    <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Resumo das triagens aptas e não aptas relacionadas ao período do relatório.</div>
     <div class="chart-area">
         @php
             $pctApto   = $triagens_total > 0 ? round($triagens_aptas / $triagens_total * 100, 1) : 0;
@@ -253,6 +258,7 @@
 {{-- Doações por Dia da Semana --}}
 <div class="section">
     <div class="section-title">Doações por Dia da Semana</div>
+    <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Distribuição das coletas por dia da semana para identificar maior movimento.</div>
     <div class="chart-area">
         @php
             $maxDiaSemana = max($por_dia_semana) ?: 1;
@@ -283,6 +289,7 @@
 {{-- Tabela de Doações --}}
 <div class="section">
     <div class="section-title">Registro Detalhado de Doações</div>
+    <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Lista das doações exportadas com data, doador, tipo sanguíneo, volume e unidade.</div>
     @if($doacoes->count() > 0)
     <table>
         <thead>

@@ -2,13 +2,13 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <title>Relatório de Desempenho — Doe Vida</title>
+    <title>{{ $titulo ?? 'Relatório de Desempenho' }} — Doe Vida</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; color: #1F2937; background: #fff; }
 
         .header {
-            background: linear-gradient(135deg, #1E3A5F 0%, #1D4ED8 60%, #2563EB 100%);
+            background-color: #1D4ED8;
             color: white; padding: 18px 24px; margin-bottom: 16px;
         }
         .header-inner { display: table; width: 100%; }
@@ -74,12 +74,13 @@
 <div class="header">
     <div class="header-inner">
         <div class="header-left">
-            <h1>Relatório de Desempenho Operacional</h1>
-            <div class="subtitle">Doe Vida — Sistema de Gestão de Doações de Sangue</div>
+            <h1>{{ $titulo ?? 'Relatório de Desempenho - ' . ($periodo_label ?? 'últimos 6 meses') }}</h1>
+            <div class="subtitle">{{ $subtitulo ?? 'Performance operacional, volume coletado e produtividade.' }} Tipo: {{ $tipo_filtro ?? 'Todos os tipos' }}</div>
         </div>
         <div class="header-right">
             <strong>{{ $unidade }}</strong>
-            Período: últimos 6 meses<br>
+            Período: {{ $periodo_label ?? 'últimos 6 meses' }}<br>
+            Tipo: {{ $tipo_filtro ?? 'Todos os tipos' }}<br>
             Gerado em {{ $gerado_em }}
         </div>
     </div>
@@ -116,7 +117,8 @@
 
 {{-- Gráfico de Linha Mensal --}}
 <div class="section">
-    <div class="section-title">Evolução Mensal de Doações (Últimos 6 Meses)</div>
+    <div class="section-title">Evolução Mensal de Doações</div>
+    <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Série mensal de doações e volume coletado no período {{ $periodo_label ?? 'últimos 6 meses' }}.</div>
     <div class="chart-area">
         @php
             $vals   = array_column($performance_mensal, 'total');
@@ -182,6 +184,7 @@
 <div class="two-col">
     <div class="two-col-cell">
         <div class="section-title">Desempenho por Unidade</div>
+        <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Comparativo de doações, volume e participação de cada hemocentro.</div>
         @if($por_hemocentro->count() > 0)
         <table>
             <thead>
@@ -211,6 +214,7 @@
     </div>
     <div class="two-col-cell">
         <div class="section-title">Funcionários Mais Ativos</div>
+        <div style="font-size:8px; color:#6B7280; margin-bottom:6px;">Ranking de funcionários com mais registros de doação no período selecionado.</div>
         @if($top_funcionarios->count() > 0)
         <table>
             <thead>
