@@ -28,12 +28,12 @@
 Todas as rotas da API utilizam o prefixo padrão `/api` (fornecido pelo Laravel).
 As rotas que exigem autenticação requerem o envio do token Bearer via header (Sanctum).
 
-### 🔐 Autenticação
+### 🔐 Autenticação -- PRONTO
 - `POST /api/auth/register`: Criação de um novo usuário.
 - `POST /api/auth/login`: Realiza o login e retorna o token de acesso.
 - `GET /api/auth/me`: Retorna os dados do usuário autenticado atual. *(Requer Autenticação)*
 
-### 👥 Usuários
+### 👥 Usuários -- PRONTO
 - `POST /api/auth/users`: Criação de um novo usuário por um administrador/funcionário. *(Requer Autenticação)*
 - `GET /api/users`: Lista os usuários.
 - `GET /api/users/{id}`: Exibe os detalhes de um usuário específico.
