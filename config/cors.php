@@ -21,6 +21,7 @@ return [
 
     'allowed_origins' => [
         'https://web-doe-vida-production.up.railway.app',
+        'https://web-doe-vida.up.railway.app',
         'http://localhost:3000',
         'http://localhost:5173',
     ],
