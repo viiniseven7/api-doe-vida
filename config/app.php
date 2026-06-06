@@ -52,7 +52,9 @@ return [
     |
     */
 
-    'url' => env('APP_URL', 'http://localhost'),
+    'url' => env('APP_URL', 'https://api-doe-vida-uc75.onrender.com'),
+
+    'frontend_url' => env('FRONTEND_URL', 'https://web-doe-vida-production.up.railway.app'),
 
     /*
     |--------------------------------------------------------------------------

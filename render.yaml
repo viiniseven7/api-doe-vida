@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: api-doe-vida
+    runtime: docker
+    plan: free
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        value: ""
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        value: ""
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_DATABASE
+        value: ""
+      - key: DB_USERNAME
+        value: ""
+      - key: DB_PASSWORD
+        value: ""
+      - key: APP_URL
+        value: ""

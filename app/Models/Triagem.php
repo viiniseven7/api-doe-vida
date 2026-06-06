@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Triagem extends Model
+{
+    use HasFactory;
+
+    protected $table = 'triagens'; // Definindo o nome da tabela manualmente
+
+    protected $fillable = [
+        'agendamento_id',
+        'user_id', 
+        'funcionario_id', 
+        'hemocentro_id', 
+        'data_triagem', 
+        'status_triagem', 
+        'apto', 
+        'motivo_inaptidao', 
+        'observacoes'
+    ];
+
+    // Casts ajudam o Laravel a tratar os tipos de dados automaticamente
+    protected $casts = [
+        'data_triagem' => 'datetime',
+        'apto' => 'boolean',
+    ];
+
+    // Relacionamentos
+    public function agendamento() {
+        return $this->belongsTo(Agendamento::class, 'agendamento_id');
+    }
+
+    public function doador() {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function funcionario() {
+        return $this->belongsTo(User::class, 'funcionario_id');
+    }
+
+    public function hemocentro() {
+        return $this->belongsTo(Hemocentro::class);
+    }
+
+    public function sinaisVitais()
+    {
+        return $this->hasOne(TriagemSinaisVitais::class, 'triagem_id');
+    }
+
+    public function aptidao()
+    {
+        return $this->hasOne(TriagemAptidao::class, 'triagem_id');
+    }
+
+    public function respostas()
+    {
+        return $this->hasMany(TriagemResposta::class, 'triagem_id');
+    }
+
+    public function scopeAtivas($query) {
+
+            return $query->where('status_triagem', '!=', 'E');
+    }
+}

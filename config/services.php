@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'ml' => [
+        'url' => env('ML_URL', env('ML_API_URL')),
+        'key' => env('ML_KEY', env('ML_API_KEY')),
+    ],
+
 ];
