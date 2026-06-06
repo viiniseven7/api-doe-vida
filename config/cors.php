@@ -25,6 +25,7 @@ return [
         'https://web-doe-vida.up.railway.app',
         'http://localhost:3000',
         'http://localhost:5173',
+        'https://doavida.up.railway.app',     
     ],
 
     'allowed_origins_patterns' => [],
