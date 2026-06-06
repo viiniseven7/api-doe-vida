@@ -19,13 +19,6 @@ RUN apt-get update && apt-get install -y \
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install pdo_mysql pdo_pgsql mbstring zip gd bcmath
 
-# Ativar mod_rewrite do Apache
-RUN a2enmod rewrite
-
-# Configurar o DocumentRoot para a pasta /public do Laravel
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
-RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
 # Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -42,11 +35,9 @@ RUN composer install --no-interaction --optimize-autoloader --no-dev
 # Ajustar permissões para as pastas de storage e cache
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Corrigir conflito de MPM do Apache
-RUN a2dismod mpm_event mpm_worker && a2enmod mpm_prefork
 
 # Expor a porta 80
 EXPOSE 80
 
-# Comando para iniciar o Apache
-CMD ["apache2-foreground"]
+# Usar o servidor built-in do PHP em vez do Apache
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=80"]
