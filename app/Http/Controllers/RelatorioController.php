@@ -94,18 +94,20 @@ class RelatorioController extends Controller
         // Performance mensal (últimos 6 meses)
         $performanceMensal = $this->performanceMensalQuery($hemocentroId, 6);
 
-        // Doações por dia da semana no período
-        $porDiaSemana = (clone $doacaoBase)
+        // Doações por dia da semana no período (compatível com PostgreSQL)
+        $doacoesDiaSemanaRaw = (clone $doacaoBase)
             ->where('data_hora_doacao', '>=', Carbon::now()->subDays($dias))
-            ->selectRaw('DAYOFWEEK(data_hora_doacao) as dia_semana, COUNT(*) as total')
-            ->groupBy('dia_semana')
-            ->pluck('total', 'dia_semana')
-            ->toArray();
+            ->get(['data_hora_doacao']);
 
-        $diasLabel = [1 => 'Dom', 2 => 'Seg', 3 => 'Ter', 4 => 'Qua', 5 => 'Qui', 6 => 'Sex', 7 => 'Sab'];
+        $diasLabel = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+        $porDiaSemana = array_fill_keys($diasLabel, 0);
+        foreach ($doacoesDiaSemanaRaw as $d) {
+            if (!$d->data_hora_doacao) continue;
+            $porDiaSemana[$diasLabel[Carbon::parse($d->data_hora_doacao)->dayOfWeek]]++;
+        }
         $doacoesDiaSemana = [];
-        foreach ($diasLabel as $num => $label) {
-            $doacoesDiaSemana[] = ['dia' => $label, 'total' => (int)($porDiaSemana[$num] ?? 0)];
+        foreach ($diasLabel as $label) {
+            $doacoesDiaSemana[] = ['dia' => $label, 'total' => $porDiaSemana[$label]];
         }
 
         return response()->json([
@@ -868,6 +870,10 @@ class RelatorioController extends Controller
             return "TO_CHAR(data_hora_doacao, 'YYYY-MM')";
         }
 
-        return "DATE_FORMAT(data_hora_doacao, '%Y-%m')";
+        if ($driver === 'mysql') {
+            return "DATE_FORMAT(data_hora_doacao, '%Y-%m')";
+        }
+
+        return "TO_CHAR(data_hora_doacao, 'YYYY-MM')";
     }
 }

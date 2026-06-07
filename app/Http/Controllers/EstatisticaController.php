@@ -251,6 +251,10 @@ class EstatisticaController extends Controller
             return "TO_CHAR(data_hora_doacao, 'YYYY-MM')";
         }
 
-        return "DATE_FORMAT(data_hora_doacao, '%Y-%m')";
+        if ($driver === 'mysql') {
+            return "DATE_FORMAT(data_hora_doacao, '%Y-%m')";
+        }
+
+        return "TO_CHAR(data_hora_doacao, 'YYYY-MM')";
     }
 }
