@@ -22,7 +22,7 @@ class HemocentroSeeder extends Seeder
                 'numero' => '200',
                 'razao_social' => 'Centro de Hematologia e Hemoterapia do Parana',
                 'status_agendamento' => 'ativo',
-                'status' => '1',
+                'status' => true,
             ]
         );
 
@@ -39,7 +39,7 @@ class HemocentroSeeder extends Seeder
                 'numero' => '18',
                 'razao_social' => 'Hemocentro dos Hospitais de Clinicas',
                 'status_agendamento' => 'ativo',
-                'status' => '1',
+                'status' => true,
             ]
         );
 
@@ -56,7 +56,7 @@ class HemocentroSeeder extends Seeder
                 'numero' => '1434',
                 'razao_social' => 'Centro de Hemoterapia Sao Jose dos Pinhais',
                 'status_agendamento' => 'ativo',
-                'status' => '1',
+                'status' => true,
                 'criado_por' => 'seeder',
             ]
         );
@@ -74,7 +74,7 @@ class HemocentroSeeder extends Seeder
                 'numero' => '111',
                 'razao_social' => 'Centro de Hemoterapia Araucaria',
                 'status_agendamento' => 'ativo',
-                'status' => '1',
+                'status' => true,
                 'criado_por' => 'seeder',
             ]
         );
