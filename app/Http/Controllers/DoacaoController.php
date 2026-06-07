@@ -23,6 +23,10 @@ class DoacaoController extends Controller
             $query->where('hemocentro_id', $user->hemocentro_id);
         }
 
+        if ($request->filled('data')) {
+            $query->whereDate('data_hora_doacao', $request->data);
+        }
+
         $doacoes = $query->orderBy('data_hora_doacao', 'desc')->get();
 
         return response()->json([

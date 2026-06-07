@@ -18,7 +18,12 @@ class AgendamentoController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = Agendamento::with(['hemocentro', 'doador', 'triagem', 'doacao']);
+        $query = Agendamento::with([
+            'hemocentro:id,nome,cidade,uf',
+            'doador:id,name,telefone,tipo_sang,tempo_restricao,sexo',
+            'triagem:id,agendamento_id,apto,data_triagem',
+            'doacao:id,agendamento_id,tipo_sangue,quantidade,data_hora_doacao',
+        ]);
 
         // Filtro por papel
         if ($user->role_id == 1) { // Doador
@@ -54,7 +59,11 @@ class AgendamentoController extends Controller
     public function historico()
     {
         $user = Auth::user();
-        $agendamentos = Agendamento::with(['hemocentro', 'triagem', 'doacao'])
+        $agendamentos = Agendamento::with([
+            'hemocentro:id,nome,cidade,uf',
+            'triagem:id,agendamento_id,apto,data_triagem',
+            'doacao:id,agendamento_id,tipo_sangue,quantidade,data_hora_doacao',
+        ])
             ->where('user_id', $user->id)
             ->withTrashed() // Inclui deletados se houver
             ->orderBy('data_hora_doacao', 'desc')
